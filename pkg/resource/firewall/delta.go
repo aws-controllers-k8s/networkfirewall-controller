@@ -42,6 +42,7 @@ func newResourceDelta(
 		delta.Add("", a, b)
 		return delta
 	}
+	customPreCompare(a, b)
 
 	if ackcompare.HasNilDifference(a.ko.Spec.DeleteProtection, b.ko.Spec.DeleteProtection) {
 		delta.Add("Spec.DeleteProtection", a.ko.Spec.DeleteProtection, b.ko.Spec.DeleteProtection)

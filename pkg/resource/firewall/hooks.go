@@ -14,9 +14,14 @@
 package firewall
 
 import (
+	"context"
 	"errors"
+	"sort"
 
+	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
+	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
+	svcsdk "github.com/aws/aws-sdk-go/service/networkfirewall"
 )
 
 var (
@@ -25,3 +30,82 @@ var (
 		ackrequeue.DefaultRequeueAfterDuration,
 	)
 )
+
+func (rm *resourceManager) customUpdateFirewall(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+	delta *ackcompare.Delta,
+) (updated *resource, err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.customUpdateFirewall")
+	defer exit(err)
+
+	ko := desired.ko.DeepCopy()
+
+	rm.setStatusDefaults(ko)
+
+	if delta.DifferentAt("Spec.FirewallPolicyARN") {
+		if err = rm.syncFirewallPolicyARN(ctx, desired, latest); err != nil {
+			return nil, err
+		}
+	}
+
+	ko.Status.Firewall.FirewallPolicyARN = desired.ko.Spec.FirewallPolicyARN
+
+	return &resource{ko}, nil
+}
+
+func (rm *resourceManager) syncFirewallPolicyARN(
+	ctx context.Context,
+	desired *resource,
+	latest *resource,
+) (err error) {
+	rlog := ackrtlog.FromContext(ctx)
+	exit := rlog.Trace("rm.syncFirewallPolicyARN")
+	defer exit(err)
+
+	input := &svcsdk.AssociateFirewallPolicyInput{}
+
+	// Fetch latest firewall information from AWS.
+	if latest.ko.Status.Firewall != nil && latest.ko.Status.Firewall.FirewallARN != nil {
+		input.FirewallArn = latest.ko.Status.Firewall.FirewallARN
+	}
+
+	// Update firewall policy ARN with desired value.
+	if desired.ko.Spec.FirewallPolicyARN != nil {
+		input.FirewallPolicyArn = desired.ko.Spec.FirewallPolicyARN
+	}
+
+	_, err = rm.sdkapi.AssociateFirewallPolicyWithContext(ctx, input)
+	rm.metrics.RecordAPICall("UPDATE", "AssociateFirewallPolicy", err)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func customPreCompare(
+	a *resource,
+	b *resource,
+) {
+	// Sort subnet mappings such that they can be compared in a deterministic way.
+	customPreCompareSubnetMappings(a, b)
+}
+
+func customPreCompareSubnetMappings(
+	a *resource,
+	b *resource,
+) {
+	if a.ko.Spec.SubnetMappings != nil {
+		sort.Slice(a.ko.Spec.SubnetMappings[:], func(i, j int) bool {
+			return *a.ko.Spec.SubnetMappings[i].SubnetID < *a.ko.Spec.SubnetMappings[j].SubnetID
+		})
+	}
+	if b.ko.Spec.SubnetMappings != nil {
+		sort.Slice(b.ko.Spec.SubnetMappings[:], func(i, j int) bool {
+			return *b.ko.Spec.SubnetMappings[i].SubnetID < *b.ko.Spec.SubnetMappings[j].SubnetID
+		})
+	}
+}

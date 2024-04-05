@@ -20,10 +20,14 @@ resources:
         in:
         - READY
     hooks:
+      delta_pre_compare:
+        code: customPreCompare(a, b)
       sdk_delete_post_request:
         template_path: common/sdk_delete_post_request.go.tpl
       sdk_read_one_post_set_output:
         template_path: common/sdk_read_one_post_set_output.go.tpl
+    update_operation:
+      custom_method_name: customUpdateFirewall
   FirewallPolicy:
     exceptions:
       terminal_codes:
