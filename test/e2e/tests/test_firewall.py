@@ -24,7 +24,7 @@ from e2e.replacement_values import REPLACEMENT_VALUES
 from e2e.bootstrap_resources import get_bootstrap_resources
 from e2e.tests.helper import NetworkFirewallValidator, create_simple_firewall_policy
 
-UPDATE_WAIT_AFTER_SECONDS = 20
+UPDATE_WAIT_AFTER_SECONDS = 30
 # It takes really long for firewall to be created/deleted.
 TIMEOUT_SECONDS = 1200
 
@@ -33,7 +33,7 @@ def simple_firewall(request):
     fw_resource_name = random_suffix_name("firewall-ack-test", 24)
     resources = get_bootstrap_resources()
 
-    _, policy_cr = create_simple_firewall_policy()
+    policy_ref, policy_cr = create_simple_firewall_policy()
     policy_status = policy_cr["status"]
     policy_resp = policy_status["firewallPolicyResponse"]
     policy_arn = policy_resp["firewallPolicyARN"]
@@ -58,7 +58,7 @@ def simple_firewall(request):
     assert cr["status"]["firewall"]["firewallPolicyARN"] == policy_arn
 
     # Create a new firewall policy
-    _, policy_cr = create_simple_firewall_policy()
+    new_policy_ref, policy_cr = create_simple_firewall_policy()
     policy_status = policy_cr["status"]
     policy_resp = policy_status["firewallPolicyResponse"]
     policy_arn = policy_resp["firewallPolicyARN"]
@@ -81,6 +81,8 @@ def simple_firewall(request):
     yield (ref, cr)
 
     # Try to delete, if doesn't already exist
+    delete_firewall_resource(policy_ref)
+    delete_firewall_resource(new_policy_ref)
     delete_firewall_resource(ref)
 
 def create_adopted_resource_firewall(firewall_name):

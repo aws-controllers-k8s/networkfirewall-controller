@@ -12,7 +12,6 @@
 # permissions and limitations under the License.
 
 import pytest
-import time
 
 from pathlib import Path
 from typing import Dict, Any
