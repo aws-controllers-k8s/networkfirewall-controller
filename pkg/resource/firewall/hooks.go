@@ -16,8 +16,10 @@ package firewall
 import (
 	"context"
 	"errors"
+	"reflect"
 	"sort"
 
+	"github.com/aws-controllers-k8s/networkfirewall-controller/apis/v1alpha1"
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
@@ -87,25 +89,50 @@ func (rm *resourceManager) syncFirewallPolicyARN(
 }
 
 func customPreCompare(
+	delta *ackcompare.Delta,
 	a *resource,
 	b *resource,
 ) {
-	// Sort subnet mappings such that they can be compared in a deterministic way.
-	customPreCompareSubnetMappings(a, b)
+	// Custom comparison of subnet mappings such that they can be compared in a deterministic way.
+	customCompareSubnetMappings(delta, a, b)
 }
 
-func customPreCompareSubnetMappings(
+func customCompareSubnetMappings(
+	delta *ackcompare.Delta,
 	a *resource,
 	b *resource,
 ) {
-	if a.ko.Spec.SubnetMappings != nil {
-		sort.Slice(a.ko.Spec.SubnetMappings[:], func(i, j int) bool {
-			return *a.ko.Spec.SubnetMappings[i].SubnetID < *a.ko.Spec.SubnetMappings[j].SubnetID
-		})
+	if len(a.ko.Spec.SubnetMappings) != len(b.ko.Spec.SubnetMappings) {
+		delta.Add("Spec.SubnetMappings", a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings)
+		return
 	}
-	if b.ko.Spec.SubnetMappings != nil {
-		sort.Slice(b.ko.Spec.SubnetMappings[:], func(i, j int) bool {
-			return *b.ko.Spec.SubnetMappings[i].SubnetID < *b.ko.Spec.SubnetMappings[j].SubnetID
-		})
+
+	// Sort a copy of the inputs to avoid modifying the original spec. A full deep copy is not necessary here.
+	desiredCopy := copySortedSubnetMappings(a.ko.Spec.SubnetMappings)
+	latestCopy := copySortedSubnetMappings(b.ko.Spec.SubnetMappings)
+
+	if !reflect.DeepEqual(desiredCopy, latestCopy) {
+		delta.Add("Spec.SubnetMappings", a.ko.Spec.SubnetMappings, b.ko.Spec.SubnetMappings)
 	}
+}
+
+func copySortedSubnetMappings(
+	subnetMappings []*v1alpha1.SubnetMapping,
+) []*v1alpha1.SubnetMapping {
+	if subnetMappings == nil {
+		return nil
+	}
+
+	newSubnetMappings := make([]*v1alpha1.SubnetMapping, len(subnetMappings))
+	for i, mapping := range subnetMappings {
+		newSubnetMappings[i] = &v1alpha1.SubnetMapping{
+			SubnetID:      mapping.SubnetID,
+			IPAddressType: mapping.IPAddressType,
+		}
+	}
+
+	sort.Slice(newSubnetMappings[:], func(i, j int) bool {
+		return *newSubnetMappings[i].SubnetID < *newSubnetMappings[j].SubnetID
+	})
+	return newSubnetMappings
 }
