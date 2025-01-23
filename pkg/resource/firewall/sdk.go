@@ -264,6 +264,7 @@ func (rm *resourceManager) sdkFind(
 	if err := rm.addLoggingConfigToSpec(ctx, r, ko); err != nil {
 		return nil, err
 	}
+
 	return &resource{ko}, nil
 }
 
@@ -472,7 +473,6 @@ func (rm *resourceManager) sdkCreate(
 	if err := rm.createLoggingConfig(ctx, desired); err != nil {
 		return nil, err
 	}
-
 	return &resource{ko}, nil
 }
 
@@ -571,7 +571,6 @@ func (rm *resourceManager) sdkDelete(
 	if err := rm.deleteLoggingConfig(ctx, r); err != nil {
 		return nil, err
 	}
-
 	input, err := rm.newDeleteRequestPayload(r)
 	if err != nil {
 		return nil, err
@@ -589,7 +588,6 @@ func (rm *resourceManager) sdkDelete(
 			return r, requeueWaitWhileDeleting
 		}
 	}
-
 	return nil, err
 }
 
