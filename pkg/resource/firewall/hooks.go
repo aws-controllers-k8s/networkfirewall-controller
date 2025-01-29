@@ -26,7 +26,8 @@ import (
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	svcsdk "github.com/aws/aws-sdk-go/service/networkfirewall"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/networkfirewall"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/networkfirewall/types"
 )
 
 var (
@@ -125,7 +126,7 @@ func (rm *resourceManager) syncFirewallPolicyARN(
 		input.FirewallPolicyArn = desired.ko.Spec.FirewallPolicyARN
 	}
 
-	_, err = rm.sdkapi.AssociateFirewallPolicyWithContext(ctx, input)
+	_, err = rm.sdkapi.AssociateFirewallPolicy(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "AssociateFirewallPolicy", err)
 	if err != nil {
 		return err
@@ -141,7 +142,7 @@ func (rm *resourceManager) addLoggingConfigToSpec(
 	r *resource,
 	ko *svcapitypes.Firewall,
 ) (err error) {
-	getLoggingConfigurationResponse, err := rm.sdkapi.DescribeLoggingConfigurationWithContext(ctx, rm.getLoggingConfigurationPayload(r))
+	getLoggingConfigurationResponse, err := rm.sdkapi.DescribeLoggingConfiguration(ctx, rm.getLoggingConfigurationPayload(r))
 	if err != nil {
 		return err
 	}
@@ -258,7 +259,7 @@ func (rm *resourceManager) getLoggingConfigurationPayload(
 	r *resource,
 ) *svcsdk.DescribeLoggingConfigurationInput {
 	res := &svcsdk.DescribeLoggingConfigurationInput{}
-	res.SetFirewallName(*r.ko.Spec.FirewallName)
+	res.FirewallName = r.ko.Spec.FirewallName
 	return res
 }
 
@@ -266,11 +267,11 @@ func (rm *resourceManager) newLoggingConfigurationPayload(
 	r *resource,
 ) *svcsdk.UpdateLoggingConfigurationInput {
 	res := &svcsdk.UpdateLoggingConfigurationInput{}
-	res.SetFirewallName(*r.ko.Spec.FirewallName)
+	res.FirewallName = r.ko.Spec.FirewallName
 	if r.ko.Spec.LoggingConfiguration != nil {
-		res.SetLoggingConfiguration(rm.newLoggingConfiguration(r))
+		res.LoggingConfiguration = rm.newLoggingConfiguration(r)
 	} else {
-		res.SetLoggingConfiguration(&svcsdk.LoggingConfiguration{})
+		res.LoggingConfiguration = &svcsdktypes.LoggingConfiguration{}
 	}
 	return res
 }
@@ -355,7 +356,7 @@ func (rm *resourceManager) syncLoggingConfiguration(
 	} else if latest == nil {
 		add = desiredLogDestinationConfig
 		input = rm.newLoggingConfigurationPayload(desired)
-		input.LoggingConfiguration = &svcsdk.LoggingConfiguration{}
+		input.LoggingConfiguration = &svcsdktypes.LoggingConfiguration{}
 	} else {
 		delete = latestLogDestinationConfig
 		input = rm.newLoggingConfigurationPayload(latest)
@@ -364,20 +365,23 @@ func (rm *resourceManager) syncLoggingConfiguration(
 	// UpdateLoggingConfiguration allows only single LogDestinationConfig
 	// update at a time. So the updates (delete/add) need to be done in a loop.
 	for _, c := range delete {
-		resf0elem := &svcsdk.LogDestinationConfig{}
+		resf0elem := &svcsdktypes.LogDestinationConfig{}
 
-		resf0elem.SetLogDestination(c.LogDestination)
-		resf0elem.SetLogDestinationType(*c.LogDestinationType)
-		resf0elem.SetLogType(*c.LogType)
+		cLogDestination := make(map[string]string)
+		for k, v := range c.LogDestination {
+			cLogDestination[k] = *v
+		}
 
+		resf0elem.LogDestination = cLogDestination
+		resf0elem.LogDestinationType = svcsdktypes.LogDestinationType(*c.LogDestinationType)
+		resf0elem.LogType = svcsdktypes.LogType(*c.LogType)
 		for i, config := range input.LoggingConfiguration.LogDestinationConfigs {
-			if reflect.DeepEqual(config, resf0elem) {
+			if reflect.DeepEqual(&config, resf0elem) {
 				// Swap with the last element
 				input.LoggingConfiguration.LogDestinationConfigs[i] = input.LoggingConfiguration.LogDestinationConfigs[len(input.LoggingConfiguration.LogDestinationConfigs)-1]
 				// Reduce the slice's length by 1
 				input.LoggingConfiguration.LogDestinationConfigs = input.LoggingConfiguration.LogDestinationConfigs[:len(input.LoggingConfiguration.LogDestinationConfigs)-1]
-
-				output, err := rm.sdkapi.UpdateLoggingConfigurationWithContext(ctx, input)
+				output, err := rm.sdkapi.UpdateLoggingConfiguration(ctx, input)
 				rm.metrics.RecordAPICall("UPDATE", "UpdateLoggingConfiguration", err)
 				if err != nil {
 					return err
@@ -389,15 +393,18 @@ func (rm *resourceManager) syncLoggingConfiguration(
 	}
 
 	for _, c := range add {
-		resf0elem := &svcsdk.LogDestinationConfig{}
+		resf0elem := &svcsdktypes.LogDestinationConfig{}
+		cLogDestination := make(map[string]string)
+		for k, v := range c.LogDestination {
+			cLogDestination[k] = *v
+		}
+		resf0elem.LogDestination = cLogDestination
+		resf0elem.LogDestinationType = svcsdktypes.LogDestinationType(*c.LogDestinationType)
+		resf0elem.LogType = svcsdktypes.LogType(*c.LogType)
 
-		resf0elem.SetLogDestination(c.LogDestination)
-		resf0elem.SetLogDestinationType(*c.LogDestinationType)
-		resf0elem.SetLogType(*c.LogType)
+		input.LoggingConfiguration.LogDestinationConfigs = append(input.LoggingConfiguration.LogDestinationConfigs, *resf0elem)
 
-		input.LoggingConfiguration.LogDestinationConfigs = append(input.LoggingConfiguration.LogDestinationConfigs, resf0elem)
-
-		output, err := rm.sdkapi.UpdateLoggingConfigurationWithContext(ctx, input)
+		output, err := rm.sdkapi.UpdateLoggingConfiguration(ctx, input)
 		rm.metrics.RecordAPICall("UPDATE", "UpdateLoggingConfiguration", err)
 		if err != nil {
 			return err

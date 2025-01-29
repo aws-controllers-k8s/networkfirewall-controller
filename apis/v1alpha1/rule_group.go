@@ -110,14 +110,14 @@ type RuleGroupSpec struct {
 	// +kubebuilder:validation:Required
 	RuleGroupName *string `json:"ruleGroupName"`
 	// A string containing stateful rule group rules specifications in Suricata
-	// flat format, with one rule per line. Use this to import your existing Suricata
+	// flat format, with one ruleper line. Use this to import your existing Suricata
 	// compatible rule groups.
 	//
 	// You must provide either this rules setting or a populated RuleGroup setting,
 	// but not both.
 	//
 	// You can provide your rule group specification in Suricata flat format through
-	// this setting when you create or update your rule group. The call response
+	// this setting when you create or update your rule group. The callresponse
 	// returns a RuleGroup object that Network Firewall has populated from your
 	// string.
 	Rules *string `json:"rules,omitempty"`
@@ -128,7 +128,7 @@ type RuleGroupSpec struct {
 	// The key:value pairs to associate with the resource.
 	Tags []*Tag `json:"tags,omitempty"`
 	// Indicates whether the rule group is stateless or stateful. If the rule group
-	// is stateless, it contains stateless rules. If it is stateful, it contains
+	// is stateless, it containsstateless rules. If it is stateful, it contains
 	// stateful rules.
 	// +kubebuilder:validation:Required
 	Type *string `json:"type_"`

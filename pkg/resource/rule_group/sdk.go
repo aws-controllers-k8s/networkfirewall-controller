@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/networkfirewall"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/networkfirewall"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/networkfirewall/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.NetworkFirewall{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.RuleGroup{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +77,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.DescribeRuleGroupOutput
-	resp, err = rm.sdkapi.DescribeRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeRuleGroup", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ResourceNotFoundException" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -114,13 +115,7 @@ func (rm *resourceManager) sdkFind(
 				for f0f1f0key, f0f1f0valiter := range resp.RuleGroup.RuleVariables.IPSets {
 					f0f1f0val := &svcapitypes.IPSet{}
 					if f0f1f0valiter.Definition != nil {
-						f0f1f0valf0 := []*string{}
-						for _, f0f1f0valf0iter := range f0f1f0valiter.Definition {
-							var f0f1f0valf0elem string
-							f0f1f0valf0elem = *f0f1f0valf0iter
-							f0f1f0valf0 = append(f0f1f0valf0, &f0f1f0valf0elem)
-						}
-						f0f1f0val.Definition = f0f1f0valf0
+						f0f1f0val.Definition = aws.StringSlice(f0f1f0valiter.Definition)
 					}
 					f0f1f0[f0f1f0key] = f0f1f0val
 				}
@@ -131,13 +126,7 @@ func (rm *resourceManager) sdkFind(
 				for f0f1f1key, f0f1f1valiter := range resp.RuleGroup.RuleVariables.PortSets {
 					f0f1f1val := &svcapitypes.PortSet{}
 					if f0f1f1valiter.Definition != nil {
-						f0f1f1valf0 := []*string{}
-						for _, f0f1f1valf0iter := range f0f1f1valiter.Definition {
-							var f0f1f1valf0elem string
-							f0f1f1valf0elem = *f0f1f1valf0iter
-							f0f1f1valf0 = append(f0f1f1valf0, &f0f1f1valf0elem)
-						}
-						f0f1f1val.Definition = f0f1f1valf0
+						f0f1f1val.Definition = aws.StringSlice(f0f1f1valiter.Definition)
 					}
 					f0f1f1[f0f1f1key] = f0f1f1val
 				}
@@ -149,26 +138,20 @@ func (rm *resourceManager) sdkFind(
 			f0f2 := &svcapitypes.RulesSource{}
 			if resp.RuleGroup.RulesSource.RulesSourceList != nil {
 				f0f2f0 := &svcapitypes.RulesSourceList{}
-				if resp.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType != nil {
-					f0f2f0.GeneratedRulesType = resp.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType
+				if resp.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType != "" {
+					f0f2f0.GeneratedRulesType = aws.String(string(resp.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType))
 				}
 				if resp.RuleGroup.RulesSource.RulesSourceList.TargetTypes != nil {
 					f0f2f0f1 := []*string{}
 					for _, f0f2f0f1iter := range resp.RuleGroup.RulesSource.RulesSourceList.TargetTypes {
-						var f0f2f0f1elem string
-						f0f2f0f1elem = *f0f2f0f1iter
-						f0f2f0f1 = append(f0f2f0f1, &f0f2f0f1elem)
+						var f0f2f0f1elem *string
+						f0f2f0f1elem = aws.String(string(f0f2f0f1iter))
+						f0f2f0f1 = append(f0f2f0f1, f0f2f0f1elem)
 					}
 					f0f2f0.TargetTypes = f0f2f0f1
 				}
 				if resp.RuleGroup.RulesSource.RulesSourceList.Targets != nil {
-					f0f2f0f2 := []*string{}
-					for _, f0f2f0f2iter := range resp.RuleGroup.RulesSource.RulesSourceList.Targets {
-						var f0f2f0f2elem string
-						f0f2f0f2elem = *f0f2f0f2iter
-						f0f2f0f2 = append(f0f2f0f2, &f0f2f0f2elem)
-					}
-					f0f2f0.Targets = f0f2f0f2
+					f0f2f0.Targets = aws.StringSlice(resp.RuleGroup.RulesSource.RulesSourceList.Targets)
 				}
 				f0f2.RulesSourceList = f0f2f0
 			}
@@ -179,8 +162,8 @@ func (rm *resourceManager) sdkFind(
 				f0f2f2 := []*svcapitypes.StatefulRule{}
 				for _, f0f2f2iter := range resp.RuleGroup.RulesSource.StatefulRules {
 					f0f2f2elem := &svcapitypes.StatefulRule{}
-					if f0f2f2iter.Action != nil {
-						f0f2f2elem.Action = f0f2f2iter.Action
+					if f0f2f2iter.Action != "" {
+						f0f2f2elem.Action = aws.String(string(f0f2f2iter.Action))
 					}
 					if f0f2f2iter.Header != nil {
 						f0f2f2elemf1 := &svcapitypes.Header{}
@@ -190,11 +173,11 @@ func (rm *resourceManager) sdkFind(
 						if f0f2f2iter.Header.DestinationPort != nil {
 							f0f2f2elemf1.DestinationPort = f0f2f2iter.Header.DestinationPort
 						}
-						if f0f2f2iter.Header.Direction != nil {
-							f0f2f2elemf1.Direction = f0f2f2iter.Header.Direction
+						if f0f2f2iter.Header.Direction != "" {
+							f0f2f2elemf1.Direction = aws.String(string(f0f2f2iter.Header.Direction))
 						}
-						if f0f2f2iter.Header.Protocol != nil {
-							f0f2f2elemf1.Protocol = f0f2f2iter.Header.Protocol
+						if f0f2f2iter.Header.Protocol != "" {
+							f0f2f2elemf1.Protocol = aws.String(string(f0f2f2iter.Header.Protocol))
 						}
 						if f0f2f2iter.Header.Source != nil {
 							f0f2f2elemf1.Source = f0f2f2iter.Header.Source
@@ -212,13 +195,7 @@ func (rm *resourceManager) sdkFind(
 								f0f2f2elemf2elem.Keyword = f0f2f2elemf2iter.Keyword
 							}
 							if f0f2f2elemf2iter.Settings != nil {
-								f0f2f2elemf2elemf1 := []*string{}
-								for _, f0f2f2elemf2elemf1iter := range f0f2f2elemf2iter.Settings {
-									var f0f2f2elemf2elemf1elem string
-									f0f2f2elemf2elemf1elem = *f0f2f2elemf2elemf1iter
-									f0f2f2elemf2elemf1 = append(f0f2f2elemf2elemf1, &f0f2f2elemf2elemf1elem)
-								}
-								f0f2f2elemf2elem.Settings = f0f2f2elemf2elemf1
+								f0f2f2elemf2elem.Settings = aws.StringSlice(f0f2f2elemf2iter.Settings)
 							}
 							f0f2f2elemf2 = append(f0f2f2elemf2, f0f2f2elemf2elem)
 						}
@@ -265,18 +242,13 @@ func (rm *resourceManager) sdkFind(
 					for _, f0f2f3f1iter := range resp.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules {
 						f0f2f3f1elem := &svcapitypes.StatelessRule{}
 						if f0f2f3f1iter.Priority != nil {
-							f0f2f3f1elem.Priority = f0f2f3f1iter.Priority
+							priorityCopy := int64(*f0f2f3f1iter.Priority)
+							f0f2f3f1elem.Priority = &priorityCopy
 						}
 						if f0f2f3f1iter.RuleDefinition != nil {
 							f0f2f3f1elemf1 := &svcapitypes.RuleDefinition{}
 							if f0f2f3f1iter.RuleDefinition.Actions != nil {
-								f0f2f3f1elemf1f0 := []*string{}
-								for _, f0f2f3f1elemf1f0iter := range f0f2f3f1iter.RuleDefinition.Actions {
-									var f0f2f3f1elemf1f0elem string
-									f0f2f3f1elemf1f0elem = *f0f2f3f1elemf1f0iter
-									f0f2f3f1elemf1f0 = append(f0f2f3f1elemf1f0, &f0f2f3f1elemf1f0elem)
-								}
-								f0f2f3f1elemf1.Actions = f0f2f3f1elemf1f0
+								f0f2f3f1elemf1.Actions = aws.StringSlice(f0f2f3f1iter.RuleDefinition.Actions)
 							}
 							if f0f2f3f1iter.RuleDefinition.MatchAttributes != nil {
 								f0f2f3f1elemf1f1 := &svcapitypes.MatchAttributes{}
@@ -284,12 +256,10 @@ func (rm *resourceManager) sdkFind(
 									f0f2f3f1elemf1f1f0 := []*svcapitypes.PortRange{}
 									for _, f0f2f3f1elemf1f1f0iter := range f0f2f3f1iter.RuleDefinition.MatchAttributes.DestinationPorts {
 										f0f2f3f1elemf1f1f0elem := &svcapitypes.PortRange{}
-										if f0f2f3f1elemf1f1f0iter.FromPort != nil {
-											f0f2f3f1elemf1f1f0elem.FromPort = f0f2f3f1elemf1f1f0iter.FromPort
-										}
-										if f0f2f3f1elemf1f1f0iter.ToPort != nil {
-											f0f2f3f1elemf1f1f0elem.ToPort = f0f2f3f1elemf1f1f0iter.ToPort
-										}
+										fromPortCopy := int64(f0f2f3f1elemf1f1f0iter.FromPort)
+										f0f2f3f1elemf1f1f0elem.FromPort = &fromPortCopy
+										toPortCopy := int64(f0f2f3f1elemf1f1f0iter.ToPort)
+										f0f2f3f1elemf1f1f0elem.ToPort = &toPortCopy
 										f0f2f3f1elemf1f1f0 = append(f0f2f3f1elemf1f1f0, f0f2f3f1elemf1f1f0elem)
 									}
 									f0f2f3f1elemf1f1.DestinationPorts = f0f2f3f1elemf1f1f0
@@ -308,9 +278,10 @@ func (rm *resourceManager) sdkFind(
 								if f0f2f3f1iter.RuleDefinition.MatchAttributes.Protocols != nil {
 									f0f2f3f1elemf1f1f2 := []*int64{}
 									for _, f0f2f3f1elemf1f1f2iter := range f0f2f3f1iter.RuleDefinition.MatchAttributes.Protocols {
-										var f0f2f3f1elemf1f1f2elem int64
-										f0f2f3f1elemf1f1f2elem = *f0f2f3f1elemf1f1f2iter
-										f0f2f3f1elemf1f1f2 = append(f0f2f3f1elemf1f1f2, &f0f2f3f1elemf1f1f2elem)
+										var f0f2f3f1elemf1f1f2elem *int64
+										protocolNumberCopy := int64(f0f2f3f1elemf1f1f2iter)
+										f0f2f3f1elemf1f1f2elem = &protocolNumberCopy
+										f0f2f3f1elemf1f1f2 = append(f0f2f3f1elemf1f1f2, f0f2f3f1elemf1f1f2elem)
 									}
 									f0f2f3f1elemf1f1.Protocols = f0f2f3f1elemf1f1f2
 								}
@@ -318,12 +289,10 @@ func (rm *resourceManager) sdkFind(
 									f0f2f3f1elemf1f1f3 := []*svcapitypes.PortRange{}
 									for _, f0f2f3f1elemf1f1f3iter := range f0f2f3f1iter.RuleDefinition.MatchAttributes.SourcePorts {
 										f0f2f3f1elemf1f1f3elem := &svcapitypes.PortRange{}
-										if f0f2f3f1elemf1f1f3iter.FromPort != nil {
-											f0f2f3f1elemf1f1f3elem.FromPort = f0f2f3f1elemf1f1f3iter.FromPort
-										}
-										if f0f2f3f1elemf1f1f3iter.ToPort != nil {
-											f0f2f3f1elemf1f1f3elem.ToPort = f0f2f3f1elemf1f1f3iter.ToPort
-										}
+										fromPortCopy := int64(f0f2f3f1elemf1f1f3iter.FromPort)
+										f0f2f3f1elemf1f1f3elem.FromPort = &fromPortCopy
+										toPortCopy := int64(f0f2f3f1elemf1f1f3iter.ToPort)
+										f0f2f3f1elemf1f1f3elem.ToPort = &toPortCopy
 										f0f2f3f1elemf1f1f3 = append(f0f2f3f1elemf1f1f3, f0f2f3f1elemf1f1f3elem)
 									}
 									f0f2f3f1elemf1f1.SourcePorts = f0f2f3f1elemf1f1f3
@@ -346,18 +315,18 @@ func (rm *resourceManager) sdkFind(
 										if f0f2f3f1elemf1f1f5iter.Flags != nil {
 											f0f2f3f1elemf1f1f5elemf0 := []*string{}
 											for _, f0f2f3f1elemf1f1f5elemf0iter := range f0f2f3f1elemf1f1f5iter.Flags {
-												var f0f2f3f1elemf1f1f5elemf0elem string
-												f0f2f3f1elemf1f1f5elemf0elem = *f0f2f3f1elemf1f1f5elemf0iter
-												f0f2f3f1elemf1f1f5elemf0 = append(f0f2f3f1elemf1f1f5elemf0, &f0f2f3f1elemf1f1f5elemf0elem)
+												var f0f2f3f1elemf1f1f5elemf0elem *string
+												f0f2f3f1elemf1f1f5elemf0elem = aws.String(string(f0f2f3f1elemf1f1f5elemf0iter))
+												f0f2f3f1elemf1f1f5elemf0 = append(f0f2f3f1elemf1f1f5elemf0, f0f2f3f1elemf1f1f5elemf0elem)
 											}
 											f0f2f3f1elemf1f1f5elem.Flags = f0f2f3f1elemf1f1f5elemf0
 										}
 										if f0f2f3f1elemf1f1f5iter.Masks != nil {
 											f0f2f3f1elemf1f1f5elemf1 := []*string{}
 											for _, f0f2f3f1elemf1f1f5elemf1iter := range f0f2f3f1elemf1f1f5iter.Masks {
-												var f0f2f3f1elemf1f1f5elemf1elem string
-												f0f2f3f1elemf1f1f5elemf1elem = *f0f2f3f1elemf1f1f5elemf1iter
-												f0f2f3f1elemf1f1f5elemf1 = append(f0f2f3f1elemf1f1f5elemf1, &f0f2f3f1elemf1f1f5elemf1elem)
+												var f0f2f3f1elemf1f1f5elemf1elem *string
+												f0f2f3f1elemf1f1f5elemf1elem = aws.String(string(f0f2f3f1elemf1f1f5elemf1iter))
+												f0f2f3f1elemf1f1f5elemf1 = append(f0f2f3f1elemf1f1f5elemf1, f0f2f3f1elemf1f1f5elemf1elem)
 											}
 											f0f2f3f1elemf1f1f5elem.Masks = f0f2f3f1elemf1f1f5elemf1
 										}
@@ -379,8 +348,8 @@ func (rm *resourceManager) sdkFind(
 		}
 		if resp.RuleGroup.StatefulRuleOptions != nil {
 			f0f3 := &svcapitypes.StatefulRuleOptions{}
-			if resp.RuleGroup.StatefulRuleOptions.RuleOrder != nil {
-				f0f3.RuleOrder = resp.RuleGroup.StatefulRuleOptions.RuleOrder
+			if resp.RuleGroup.StatefulRuleOptions.RuleOrder != "" {
+				f0f3.RuleOrder = aws.String(string(resp.RuleGroup.StatefulRuleOptions.RuleOrder))
 			}
 			f0.StatefulRuleOptions = f0f3
 		}
@@ -398,26 +367,22 @@ func (rm *resourceManager) sdkFind(
 					f1f0elem.AnalysisDetail = f1f0iter.AnalysisDetail
 				}
 				if f1f0iter.IdentifiedRuleIds != nil {
-					f1f0elemf1 := []*string{}
-					for _, f1f0elemf1iter := range f1f0iter.IdentifiedRuleIds {
-						var f1f0elemf1elem string
-						f1f0elemf1elem = *f1f0elemf1iter
-						f1f0elemf1 = append(f1f0elemf1, &f1f0elemf1elem)
-					}
-					f1f0elem.IDentifiedRuleIDs = f1f0elemf1
+					f1f0elem.IDentifiedRuleIDs = aws.StringSlice(f1f0iter.IdentifiedRuleIds)
 				}
-				if f1f0iter.IdentifiedType != nil {
-					f1f0elem.IDentifiedType = f1f0iter.IdentifiedType
+				if f1f0iter.IdentifiedType != "" {
+					f1f0elem.IDentifiedType = aws.String(string(f1f0iter.IdentifiedType))
 				}
 				f1f0 = append(f1f0, f1f0elem)
 			}
 			f1.AnalysisResults = f1f0
 		}
 		if resp.RuleGroupResponse.Capacity != nil {
-			f1.Capacity = resp.RuleGroupResponse.Capacity
+			capacityCopy := int64(*resp.RuleGroupResponse.Capacity)
+			f1.Capacity = &capacityCopy
 		}
 		if resp.RuleGroupResponse.ConsumedCapacity != nil {
-			f1.ConsumedCapacity = resp.RuleGroupResponse.ConsumedCapacity
+			consumedCapacityCopy := int64(*resp.RuleGroupResponse.ConsumedCapacity)
+			f1.ConsumedCapacity = &consumedCapacityCopy
 		}
 		if resp.RuleGroupResponse.Description != nil {
 			f1.Description = resp.RuleGroupResponse.Description
@@ -427,8 +392,8 @@ func (rm *resourceManager) sdkFind(
 			if resp.RuleGroupResponse.EncryptionConfiguration.KeyId != nil {
 				f1f4.KeyID = resp.RuleGroupResponse.EncryptionConfiguration.KeyId
 			}
-			if resp.RuleGroupResponse.EncryptionConfiguration.Type != nil {
-				f1f4.Type = resp.RuleGroupResponse.EncryptionConfiguration.Type
+			if resp.RuleGroupResponse.EncryptionConfiguration.Type != "" {
+				f1f4.Type = aws.String(string(resp.RuleGroupResponse.EncryptionConfiguration.Type))
 			}
 			f1.EncryptionConfiguration = f1f4
 		}
@@ -436,7 +401,8 @@ func (rm *resourceManager) sdkFind(
 			f1.LastModifiedTime = &metav1.Time{*resp.RuleGroupResponse.LastModifiedTime}
 		}
 		if resp.RuleGroupResponse.NumberOfAssociations != nil {
-			f1.NumberOfAssociations = resp.RuleGroupResponse.NumberOfAssociations
+			numberOfAssociationsCopy := int64(*resp.RuleGroupResponse.NumberOfAssociations)
+			f1.NumberOfAssociations = &numberOfAssociationsCopy
 		}
 		if resp.RuleGroupResponse.RuleGroupArn != nil {
 			f1.RuleGroupARN = resp.RuleGroupResponse.RuleGroupArn
@@ -447,8 +413,8 @@ func (rm *resourceManager) sdkFind(
 		if resp.RuleGroupResponse.RuleGroupName != nil {
 			f1.RuleGroupName = resp.RuleGroupResponse.RuleGroupName
 		}
-		if resp.RuleGroupResponse.RuleGroupStatus != nil {
-			f1.RuleGroupStatus = resp.RuleGroupResponse.RuleGroupStatus
+		if resp.RuleGroupResponse.RuleGroupStatus != "" {
+			f1.RuleGroupStatus = aws.String(string(resp.RuleGroupResponse.RuleGroupStatus))
 		}
 		if resp.RuleGroupResponse.SnsTopic != nil {
 			f1.SNSTopic = resp.RuleGroupResponse.SnsTopic
@@ -477,8 +443,8 @@ func (rm *resourceManager) sdkFind(
 			}
 			f1.Tags = f1f13
 		}
-		if resp.RuleGroupResponse.Type != nil {
-			f1.Type = resp.RuleGroupResponse.Type
+		if resp.RuleGroupResponse.Type != "" {
+			f1.Type = aws.String(string(resp.RuleGroupResponse.Type))
 		}
 		ko.Status.RuleGroupResponse = f1
 	} else {
@@ -511,16 +477,16 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.DescribeRuleGroupInput{}
 
 	if r.ko.Spec.AnalyzeRuleGroup != nil {
-		res.SetAnalyzeRuleGroup(*r.ko.Spec.AnalyzeRuleGroup)
+		res.AnalyzeRuleGroup = *r.ko.Spec.AnalyzeRuleGroup
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetRuleGroupArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.RuleGroupArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.RuleGroupName != nil {
-		res.SetRuleGroupName(*r.ko.Spec.RuleGroupName)
+		res.RuleGroupName = r.ko.Spec.RuleGroupName
 	}
 	if r.ko.Spec.Type != nil {
-		res.SetType(*r.ko.Spec.Type)
+		res.Type = svcsdktypes.RuleGroupType(*r.ko.Spec.Type)
 	}
 
 	return res, nil
@@ -545,7 +511,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateRuleGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateRuleGroup", err)
 	if err != nil {
 		return nil, err
@@ -564,26 +530,22 @@ func (rm *resourceManager) sdkCreate(
 					f0f0elem.AnalysisDetail = f0f0iter.AnalysisDetail
 				}
 				if f0f0iter.IdentifiedRuleIds != nil {
-					f0f0elemf1 := []*string{}
-					for _, f0f0elemf1iter := range f0f0iter.IdentifiedRuleIds {
-						var f0f0elemf1elem string
-						f0f0elemf1elem = *f0f0elemf1iter
-						f0f0elemf1 = append(f0f0elemf1, &f0f0elemf1elem)
-					}
-					f0f0elem.IDentifiedRuleIDs = f0f0elemf1
+					f0f0elem.IDentifiedRuleIDs = aws.StringSlice(f0f0iter.IdentifiedRuleIds)
 				}
-				if f0f0iter.IdentifiedType != nil {
-					f0f0elem.IDentifiedType = f0f0iter.IdentifiedType
+				if f0f0iter.IdentifiedType != "" {
+					f0f0elem.IDentifiedType = aws.String(string(f0f0iter.IdentifiedType))
 				}
 				f0f0 = append(f0f0, f0f0elem)
 			}
 			f0.AnalysisResults = f0f0
 		}
 		if resp.RuleGroupResponse.Capacity != nil {
-			f0.Capacity = resp.RuleGroupResponse.Capacity
+			capacityCopy := int64(*resp.RuleGroupResponse.Capacity)
+			f0.Capacity = &capacityCopy
 		}
 		if resp.RuleGroupResponse.ConsumedCapacity != nil {
-			f0.ConsumedCapacity = resp.RuleGroupResponse.ConsumedCapacity
+			consumedCapacityCopy := int64(*resp.RuleGroupResponse.ConsumedCapacity)
+			f0.ConsumedCapacity = &consumedCapacityCopy
 		}
 		if resp.RuleGroupResponse.Description != nil {
 			f0.Description = resp.RuleGroupResponse.Description
@@ -593,8 +555,8 @@ func (rm *resourceManager) sdkCreate(
 			if resp.RuleGroupResponse.EncryptionConfiguration.KeyId != nil {
 				f0f4.KeyID = resp.RuleGroupResponse.EncryptionConfiguration.KeyId
 			}
-			if resp.RuleGroupResponse.EncryptionConfiguration.Type != nil {
-				f0f4.Type = resp.RuleGroupResponse.EncryptionConfiguration.Type
+			if resp.RuleGroupResponse.EncryptionConfiguration.Type != "" {
+				f0f4.Type = aws.String(string(resp.RuleGroupResponse.EncryptionConfiguration.Type))
 			}
 			f0.EncryptionConfiguration = f0f4
 		}
@@ -602,7 +564,8 @@ func (rm *resourceManager) sdkCreate(
 			f0.LastModifiedTime = &metav1.Time{*resp.RuleGroupResponse.LastModifiedTime}
 		}
 		if resp.RuleGroupResponse.NumberOfAssociations != nil {
-			f0.NumberOfAssociations = resp.RuleGroupResponse.NumberOfAssociations
+			numberOfAssociationsCopy := int64(*resp.RuleGroupResponse.NumberOfAssociations)
+			f0.NumberOfAssociations = &numberOfAssociationsCopy
 		}
 		if resp.RuleGroupResponse.RuleGroupArn != nil {
 			f0.RuleGroupARN = resp.RuleGroupResponse.RuleGroupArn
@@ -613,8 +576,8 @@ func (rm *resourceManager) sdkCreate(
 		if resp.RuleGroupResponse.RuleGroupName != nil {
 			f0.RuleGroupName = resp.RuleGroupResponse.RuleGroupName
 		}
-		if resp.RuleGroupResponse.RuleGroupStatus != nil {
-			f0.RuleGroupStatus = resp.RuleGroupResponse.RuleGroupStatus
+		if resp.RuleGroupResponse.RuleGroupStatus != "" {
+			f0.RuleGroupStatus = aws.String(string(resp.RuleGroupResponse.RuleGroupStatus))
 		}
 		if resp.RuleGroupResponse.SnsTopic != nil {
 			f0.SNSTopic = resp.RuleGroupResponse.SnsTopic
@@ -643,8 +606,8 @@ func (rm *resourceManager) sdkCreate(
 			}
 			f0.Tags = f0f13
 		}
-		if resp.RuleGroupResponse.Type != nil {
-			f0.Type = resp.RuleGroupResponse.Type
+		if resp.RuleGroupResponse.Type != "" {
+			f0.Type = aws.String(string(resp.RuleGroupResponse.Type))
 		}
 		ko.Status.RuleGroupResponse = f0
 	} else {
@@ -669,355 +632,360 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateRuleGroupInput{}
 
 	if r.ko.Spec.AnalyzeRuleGroup != nil {
-		res.SetAnalyzeRuleGroup(*r.ko.Spec.AnalyzeRuleGroup)
+		res.AnalyzeRuleGroup = *r.ko.Spec.AnalyzeRuleGroup
 	}
 	if r.ko.Spec.Capacity != nil {
-		res.SetCapacity(*r.ko.Spec.Capacity)
+		capacityCopy0 := *r.ko.Spec.Capacity
+		if capacityCopy0 > math.MaxInt32 || capacityCopy0 < math.MinInt32 {
+			return nil, fmt.Errorf("error: field Capacity is of type int32")
+		}
+		capacityCopy := int32(capacityCopy0)
+		res.Capacity = &capacityCopy
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.DryRun != nil {
-		res.SetDryRun(*r.ko.Spec.DryRun)
+		res.DryRun = *r.ko.Spec.DryRun
 	}
 	if r.ko.Spec.EncryptionConfiguration != nil {
-		f4 := &svcsdk.EncryptionConfiguration{}
+		f4 := &svcsdktypes.EncryptionConfiguration{}
 		if r.ko.Spec.EncryptionConfiguration.KeyID != nil {
-			f4.SetKeyId(*r.ko.Spec.EncryptionConfiguration.KeyID)
+			f4.KeyId = r.ko.Spec.EncryptionConfiguration.KeyID
 		}
 		if r.ko.Spec.EncryptionConfiguration.Type != nil {
-			f4.SetType(*r.ko.Spec.EncryptionConfiguration.Type)
+			f4.Type = svcsdktypes.EncryptionType(*r.ko.Spec.EncryptionConfiguration.Type)
 		}
-		res.SetEncryptionConfiguration(f4)
+		res.EncryptionConfiguration = f4
 	}
 	if r.ko.Spec.RuleGroup != nil {
-		f5 := &svcsdk.RuleGroup{}
+		f5 := &svcsdktypes.RuleGroup{}
 		if r.ko.Spec.RuleGroup.ReferenceSets != nil {
-			f5f0 := &svcsdk.ReferenceSets{}
+			f5f0 := &svcsdktypes.ReferenceSets{}
 			if r.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences != nil {
-				f5f0f0 := map[string]*svcsdk.IPSetReference{}
+				f5f0f0 := map[string]svcsdktypes.IPSetReference{}
 				for f5f0f0key, f5f0f0valiter := range r.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences {
-					f5f0f0val := &svcsdk.IPSetReference{}
+					f5f0f0val := &svcsdktypes.IPSetReference{}
 					if f5f0f0valiter.ReferenceARN != nil {
-						f5f0f0val.SetReferenceArn(*f5f0f0valiter.ReferenceARN)
+						f5f0f0val.ReferenceArn = f5f0f0valiter.ReferenceARN
 					}
-					f5f0f0[f5f0f0key] = f5f0f0val
+					f5f0f0[f5f0f0key] = *f5f0f0val
 				}
-				f5f0.SetIPSetReferences(f5f0f0)
+				f5f0.IPSetReferences = f5f0f0
 			}
-			f5.SetReferenceSets(f5f0)
+			f5.ReferenceSets = f5f0
 		}
 		if r.ko.Spec.RuleGroup.RuleVariables != nil {
-			f5f1 := &svcsdk.RuleVariables{}
+			f5f1 := &svcsdktypes.RuleVariables{}
 			if r.ko.Spec.RuleGroup.RuleVariables.IPSets != nil {
-				f5f1f0 := map[string]*svcsdk.IPSet{}
+				f5f1f0 := map[string]svcsdktypes.IPSet{}
 				for f5f1f0key, f5f1f0valiter := range r.ko.Spec.RuleGroup.RuleVariables.IPSets {
-					f5f1f0val := &svcsdk.IPSet{}
+					f5f1f0val := &svcsdktypes.IPSet{}
 					if f5f1f0valiter.Definition != nil {
-						f5f1f0valf0 := []*string{}
-						for _, f5f1f0valf0iter := range f5f1f0valiter.Definition {
-							var f5f1f0valf0elem string
-							f5f1f0valf0elem = *f5f1f0valf0iter
-							f5f1f0valf0 = append(f5f1f0valf0, &f5f1f0valf0elem)
-						}
-						f5f1f0val.SetDefinition(f5f1f0valf0)
+						f5f1f0val.Definition = aws.ToStringSlice(f5f1f0valiter.Definition)
 					}
-					f5f1f0[f5f1f0key] = f5f1f0val
+					f5f1f0[f5f1f0key] = *f5f1f0val
 				}
-				f5f1.SetIPSets(f5f1f0)
+				f5f1.IPSets = f5f1f0
 			}
 			if r.ko.Spec.RuleGroup.RuleVariables.PortSets != nil {
-				f5f1f1 := map[string]*svcsdk.PortSet{}
+				f5f1f1 := map[string]svcsdktypes.PortSet{}
 				for f5f1f1key, f5f1f1valiter := range r.ko.Spec.RuleGroup.RuleVariables.PortSets {
-					f5f1f1val := &svcsdk.PortSet{}
+					f5f1f1val := &svcsdktypes.PortSet{}
 					if f5f1f1valiter.Definition != nil {
-						f5f1f1valf0 := []*string{}
-						for _, f5f1f1valf0iter := range f5f1f1valiter.Definition {
-							var f5f1f1valf0elem string
-							f5f1f1valf0elem = *f5f1f1valf0iter
-							f5f1f1valf0 = append(f5f1f1valf0, &f5f1f1valf0elem)
-						}
-						f5f1f1val.SetDefinition(f5f1f1valf0)
+						f5f1f1val.Definition = aws.ToStringSlice(f5f1f1valiter.Definition)
 					}
-					f5f1f1[f5f1f1key] = f5f1f1val
+					f5f1f1[f5f1f1key] = *f5f1f1val
 				}
-				f5f1.SetPortSets(f5f1f1)
+				f5f1.PortSets = f5f1f1
 			}
-			f5.SetRuleVariables(f5f1)
+			f5.RuleVariables = f5f1
 		}
 		if r.ko.Spec.RuleGroup.RulesSource != nil {
-			f5f2 := &svcsdk.RulesSource{}
+			f5f2 := &svcsdktypes.RulesSource{}
 			if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList != nil {
-				f5f2f0 := &svcsdk.RulesSourceList{}
+				f5f2f0 := &svcsdktypes.RulesSourceList{}
 				if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType != nil {
-					f5f2f0.SetGeneratedRulesType(*r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType)
+					f5f2f0.GeneratedRulesType = svcsdktypes.GeneratedRulesType(*r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType)
 				}
 				if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.TargetTypes != nil {
-					f5f2f0f1 := []*string{}
+					f5f2f0f1 := []svcsdktypes.TargetType{}
 					for _, f5f2f0f1iter := range r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.TargetTypes {
 						var f5f2f0f1elem string
-						f5f2f0f1elem = *f5f2f0f1iter
-						f5f2f0f1 = append(f5f2f0f1, &f5f2f0f1elem)
+						f5f2f0f1elem = string(*f5f2f0f1iter)
+						f5f2f0f1 = append(f5f2f0f1, svcsdktypes.TargetType(f5f2f0f1elem))
 					}
-					f5f2f0.SetTargetTypes(f5f2f0f1)
+					f5f2f0.TargetTypes = f5f2f0f1
 				}
 				if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.Targets != nil {
-					f5f2f0f2 := []*string{}
-					for _, f5f2f0f2iter := range r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.Targets {
-						var f5f2f0f2elem string
-						f5f2f0f2elem = *f5f2f0f2iter
-						f5f2f0f2 = append(f5f2f0f2, &f5f2f0f2elem)
-					}
-					f5f2f0.SetTargets(f5f2f0f2)
+					f5f2f0.Targets = aws.ToStringSlice(r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.Targets)
 				}
-				f5f2.SetRulesSourceList(f5f2f0)
+				f5f2.RulesSourceList = f5f2f0
 			}
 			if r.ko.Spec.RuleGroup.RulesSource.RulesString != nil {
-				f5f2.SetRulesString(*r.ko.Spec.RuleGroup.RulesSource.RulesString)
+				f5f2.RulesString = r.ko.Spec.RuleGroup.RulesSource.RulesString
 			}
 			if r.ko.Spec.RuleGroup.RulesSource.StatefulRules != nil {
-				f5f2f2 := []*svcsdk.StatefulRule{}
+				f5f2f2 := []svcsdktypes.StatefulRule{}
 				for _, f5f2f2iter := range r.ko.Spec.RuleGroup.RulesSource.StatefulRules {
-					f5f2f2elem := &svcsdk.StatefulRule{}
+					f5f2f2elem := &svcsdktypes.StatefulRule{}
 					if f5f2f2iter.Action != nil {
-						f5f2f2elem.SetAction(*f5f2f2iter.Action)
+						f5f2f2elem.Action = svcsdktypes.StatefulAction(*f5f2f2iter.Action)
 					}
 					if f5f2f2iter.Header != nil {
-						f5f2f2elemf1 := &svcsdk.Header{}
+						f5f2f2elemf1 := &svcsdktypes.Header{}
 						if f5f2f2iter.Header.Destination != nil {
-							f5f2f2elemf1.SetDestination(*f5f2f2iter.Header.Destination)
+							f5f2f2elemf1.Destination = f5f2f2iter.Header.Destination
 						}
 						if f5f2f2iter.Header.DestinationPort != nil {
-							f5f2f2elemf1.SetDestinationPort(*f5f2f2iter.Header.DestinationPort)
+							f5f2f2elemf1.DestinationPort = f5f2f2iter.Header.DestinationPort
 						}
 						if f5f2f2iter.Header.Direction != nil {
-							f5f2f2elemf1.SetDirection(*f5f2f2iter.Header.Direction)
+							f5f2f2elemf1.Direction = svcsdktypes.StatefulRuleDirection(*f5f2f2iter.Header.Direction)
 						}
 						if f5f2f2iter.Header.Protocol != nil {
-							f5f2f2elemf1.SetProtocol(*f5f2f2iter.Header.Protocol)
+							f5f2f2elemf1.Protocol = svcsdktypes.StatefulRuleProtocol(*f5f2f2iter.Header.Protocol)
 						}
 						if f5f2f2iter.Header.Source != nil {
-							f5f2f2elemf1.SetSource(*f5f2f2iter.Header.Source)
+							f5f2f2elemf1.Source = f5f2f2iter.Header.Source
 						}
 						if f5f2f2iter.Header.SourcePort != nil {
-							f5f2f2elemf1.SetSourcePort(*f5f2f2iter.Header.SourcePort)
+							f5f2f2elemf1.SourcePort = f5f2f2iter.Header.SourcePort
 						}
-						f5f2f2elem.SetHeader(f5f2f2elemf1)
+						f5f2f2elem.Header = f5f2f2elemf1
 					}
 					if f5f2f2iter.RuleOptions != nil {
-						f5f2f2elemf2 := []*svcsdk.RuleOption{}
+						f5f2f2elemf2 := []svcsdktypes.RuleOption{}
 						for _, f5f2f2elemf2iter := range f5f2f2iter.RuleOptions {
-							f5f2f2elemf2elem := &svcsdk.RuleOption{}
+							f5f2f2elemf2elem := &svcsdktypes.RuleOption{}
 							if f5f2f2elemf2iter.Keyword != nil {
-								f5f2f2elemf2elem.SetKeyword(*f5f2f2elemf2iter.Keyword)
+								f5f2f2elemf2elem.Keyword = f5f2f2elemf2iter.Keyword
 							}
 							if f5f2f2elemf2iter.Settings != nil {
-								f5f2f2elemf2elemf1 := []*string{}
-								for _, f5f2f2elemf2elemf1iter := range f5f2f2elemf2iter.Settings {
-									var f5f2f2elemf2elemf1elem string
-									f5f2f2elemf2elemf1elem = *f5f2f2elemf2elemf1iter
-									f5f2f2elemf2elemf1 = append(f5f2f2elemf2elemf1, &f5f2f2elemf2elemf1elem)
-								}
-								f5f2f2elemf2elem.SetSettings(f5f2f2elemf2elemf1)
+								f5f2f2elemf2elem.Settings = aws.ToStringSlice(f5f2f2elemf2iter.Settings)
 							}
-							f5f2f2elemf2 = append(f5f2f2elemf2, f5f2f2elemf2elem)
+							f5f2f2elemf2 = append(f5f2f2elemf2, *f5f2f2elemf2elem)
 						}
-						f5f2f2elem.SetRuleOptions(f5f2f2elemf2)
+						f5f2f2elem.RuleOptions = f5f2f2elemf2
 					}
-					f5f2f2 = append(f5f2f2, f5f2f2elem)
+					f5f2f2 = append(f5f2f2, *f5f2f2elem)
 				}
-				f5f2.SetStatefulRules(f5f2f2)
+				f5f2.StatefulRules = f5f2f2
 			}
 			if r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions != nil {
-				f5f2f3 := &svcsdk.StatelessRulesAndCustomActions{}
+				f5f2f3 := &svcsdktypes.StatelessRulesAndCustomActions{}
 				if r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions != nil {
-					f5f2f3f0 := []*svcsdk.CustomAction{}
+					f5f2f3f0 := []svcsdktypes.CustomAction{}
 					for _, f5f2f3f0iter := range r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions {
-						f5f2f3f0elem := &svcsdk.CustomAction{}
+						f5f2f3f0elem := &svcsdktypes.CustomAction{}
 						if f5f2f3f0iter.ActionDefinition != nil {
-							f5f2f3f0elemf0 := &svcsdk.ActionDefinition{}
+							f5f2f3f0elemf0 := &svcsdktypes.ActionDefinition{}
 							if f5f2f3f0iter.ActionDefinition.PublishMetricAction != nil {
-								f5f2f3f0elemf0f0 := &svcsdk.PublishMetricAction{}
+								f5f2f3f0elemf0f0 := &svcsdktypes.PublishMetricAction{}
 								if f5f2f3f0iter.ActionDefinition.PublishMetricAction.Dimensions != nil {
-									f5f2f3f0elemf0f0f0 := []*svcsdk.Dimension{}
+									f5f2f3f0elemf0f0f0 := []svcsdktypes.Dimension{}
 									for _, f5f2f3f0elemf0f0f0iter := range f5f2f3f0iter.ActionDefinition.PublishMetricAction.Dimensions {
-										f5f2f3f0elemf0f0f0elem := &svcsdk.Dimension{}
+										f5f2f3f0elemf0f0f0elem := &svcsdktypes.Dimension{}
 										if f5f2f3f0elemf0f0f0iter.Value != nil {
-											f5f2f3f0elemf0f0f0elem.SetValue(*f5f2f3f0elemf0f0f0iter.Value)
+											f5f2f3f0elemf0f0f0elem.Value = f5f2f3f0elemf0f0f0iter.Value
 										}
-										f5f2f3f0elemf0f0f0 = append(f5f2f3f0elemf0f0f0, f5f2f3f0elemf0f0f0elem)
+										f5f2f3f0elemf0f0f0 = append(f5f2f3f0elemf0f0f0, *f5f2f3f0elemf0f0f0elem)
 									}
-									f5f2f3f0elemf0f0.SetDimensions(f5f2f3f0elemf0f0f0)
+									f5f2f3f0elemf0f0.Dimensions = f5f2f3f0elemf0f0f0
 								}
-								f5f2f3f0elemf0.SetPublishMetricAction(f5f2f3f0elemf0f0)
+								f5f2f3f0elemf0.PublishMetricAction = f5f2f3f0elemf0f0
 							}
-							f5f2f3f0elem.SetActionDefinition(f5f2f3f0elemf0)
+							f5f2f3f0elem.ActionDefinition = f5f2f3f0elemf0
 						}
 						if f5f2f3f0iter.ActionName != nil {
-							f5f2f3f0elem.SetActionName(*f5f2f3f0iter.ActionName)
+							f5f2f3f0elem.ActionName = f5f2f3f0iter.ActionName
 						}
-						f5f2f3f0 = append(f5f2f3f0, f5f2f3f0elem)
+						f5f2f3f0 = append(f5f2f3f0, *f5f2f3f0elem)
 					}
-					f5f2f3.SetCustomActions(f5f2f3f0)
+					f5f2f3.CustomActions = f5f2f3f0
 				}
 				if r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules != nil {
-					f5f2f3f1 := []*svcsdk.StatelessRule{}
+					f5f2f3f1 := []svcsdktypes.StatelessRule{}
 					for _, f5f2f3f1iter := range r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules {
-						f5f2f3f1elem := &svcsdk.StatelessRule{}
+						f5f2f3f1elem := &svcsdktypes.StatelessRule{}
 						if f5f2f3f1iter.Priority != nil {
-							f5f2f3f1elem.SetPriority(*f5f2f3f1iter.Priority)
+							priorityCopy0 := *f5f2f3f1iter.Priority
+							if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+								return nil, fmt.Errorf("error: field Priority is of type int32")
+							}
+							priorityCopy := int32(priorityCopy0)
+							f5f2f3f1elem.Priority = &priorityCopy
 						}
 						if f5f2f3f1iter.RuleDefinition != nil {
-							f5f2f3f1elemf1 := &svcsdk.RuleDefinition{}
+							f5f2f3f1elemf1 := &svcsdktypes.RuleDefinition{}
 							if f5f2f3f1iter.RuleDefinition.Actions != nil {
-								f5f2f3f1elemf1f0 := []*string{}
-								for _, f5f2f3f1elemf1f0iter := range f5f2f3f1iter.RuleDefinition.Actions {
-									var f5f2f3f1elemf1f0elem string
-									f5f2f3f1elemf1f0elem = *f5f2f3f1elemf1f0iter
-									f5f2f3f1elemf1f0 = append(f5f2f3f1elemf1f0, &f5f2f3f1elemf1f0elem)
-								}
-								f5f2f3f1elemf1.SetActions(f5f2f3f1elemf1f0)
+								f5f2f3f1elemf1.Actions = aws.ToStringSlice(f5f2f3f1iter.RuleDefinition.Actions)
 							}
 							if f5f2f3f1iter.RuleDefinition.MatchAttributes != nil {
-								f5f2f3f1elemf1f1 := &svcsdk.MatchAttributes{}
+								f5f2f3f1elemf1f1 := &svcsdktypes.MatchAttributes{}
 								if f5f2f3f1iter.RuleDefinition.MatchAttributes.DestinationPorts != nil {
-									f5f2f3f1elemf1f1f0 := []*svcsdk.PortRange{}
+									f5f2f3f1elemf1f1f0 := []svcsdktypes.PortRange{}
 									for _, f5f2f3f1elemf1f1f0iter := range f5f2f3f1iter.RuleDefinition.MatchAttributes.DestinationPorts {
-										f5f2f3f1elemf1f1f0elem := &svcsdk.PortRange{}
+										f5f2f3f1elemf1f1f0elem := &svcsdktypes.PortRange{}
 										if f5f2f3f1elemf1f1f0iter.FromPort != nil {
-											f5f2f3f1elemf1f1f0elem.SetFromPort(*f5f2f3f1elemf1f1f0iter.FromPort)
+											fromPortCopy0 := *f5f2f3f1elemf1f1f0iter.FromPort
+											if fromPortCopy0 > math.MaxInt32 || fromPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field FromPort is of type int32")
+											}
+											fromPortCopy := int32(fromPortCopy0)
+											f5f2f3f1elemf1f1f0elem.FromPort = fromPortCopy
 										}
 										if f5f2f3f1elemf1f1f0iter.ToPort != nil {
-											f5f2f3f1elemf1f1f0elem.SetToPort(*f5f2f3f1elemf1f1f0iter.ToPort)
+											toPortCopy0 := *f5f2f3f1elemf1f1f0iter.ToPort
+											if toPortCopy0 > math.MaxInt32 || toPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ToPort is of type int32")
+											}
+											toPortCopy := int32(toPortCopy0)
+											f5f2f3f1elemf1f1f0elem.ToPort = toPortCopy
 										}
-										f5f2f3f1elemf1f1f0 = append(f5f2f3f1elemf1f1f0, f5f2f3f1elemf1f1f0elem)
+										f5f2f3f1elemf1f1f0 = append(f5f2f3f1elemf1f1f0, *f5f2f3f1elemf1f1f0elem)
 									}
-									f5f2f3f1elemf1f1.SetDestinationPorts(f5f2f3f1elemf1f1f0)
+									f5f2f3f1elemf1f1.DestinationPorts = f5f2f3f1elemf1f1f0
 								}
 								if f5f2f3f1iter.RuleDefinition.MatchAttributes.Destinations != nil {
-									f5f2f3f1elemf1f1f1 := []*svcsdk.Address{}
+									f5f2f3f1elemf1f1f1 := []svcsdktypes.Address{}
 									for _, f5f2f3f1elemf1f1f1iter := range f5f2f3f1iter.RuleDefinition.MatchAttributes.Destinations {
-										f5f2f3f1elemf1f1f1elem := &svcsdk.Address{}
+										f5f2f3f1elemf1f1f1elem := &svcsdktypes.Address{}
 										if f5f2f3f1elemf1f1f1iter.AddressDefinition != nil {
-											f5f2f3f1elemf1f1f1elem.SetAddressDefinition(*f5f2f3f1elemf1f1f1iter.AddressDefinition)
+											f5f2f3f1elemf1f1f1elem.AddressDefinition = f5f2f3f1elemf1f1f1iter.AddressDefinition
 										}
-										f5f2f3f1elemf1f1f1 = append(f5f2f3f1elemf1f1f1, f5f2f3f1elemf1f1f1elem)
+										f5f2f3f1elemf1f1f1 = append(f5f2f3f1elemf1f1f1, *f5f2f3f1elemf1f1f1elem)
 									}
-									f5f2f3f1elemf1f1.SetDestinations(f5f2f3f1elemf1f1f1)
+									f5f2f3f1elemf1f1.Destinations = f5f2f3f1elemf1f1f1
 								}
 								if f5f2f3f1iter.RuleDefinition.MatchAttributes.Protocols != nil {
-									f5f2f3f1elemf1f1f2 := []*int64{}
+									f5f2f3f1elemf1f1f2 := []int32{}
 									for _, f5f2f3f1elemf1f1f2iter := range f5f2f3f1iter.RuleDefinition.MatchAttributes.Protocols {
-										var f5f2f3f1elemf1f1f2elem int64
-										f5f2f3f1elemf1f1f2elem = *f5f2f3f1elemf1f1f2iter
-										f5f2f3f1elemf1f1f2 = append(f5f2f3f1elemf1f1f2, &f5f2f3f1elemf1f1f2elem)
+										var f5f2f3f1elemf1f1f2elem int32
+										protocolNumberCopy0 := *f5f2f3f1elemf1f1f2iter
+										if protocolNumberCopy0 > math.MaxInt32 || protocolNumberCopy0 < math.MinInt32 {
+											return nil, fmt.Errorf("error: field ProtocolNumber is of type int32")
+										}
+										protocolNumberCopy := int32(protocolNumberCopy0)
+										f5f2f3f1elemf1f1f2elem = protocolNumberCopy
+										f5f2f3f1elemf1f1f2 = append(f5f2f3f1elemf1f1f2, f5f2f3f1elemf1f1f2elem)
 									}
-									f5f2f3f1elemf1f1.SetProtocols(f5f2f3f1elemf1f1f2)
+									f5f2f3f1elemf1f1.Protocols = f5f2f3f1elemf1f1f2
 								}
 								if f5f2f3f1iter.RuleDefinition.MatchAttributes.SourcePorts != nil {
-									f5f2f3f1elemf1f1f3 := []*svcsdk.PortRange{}
+									f5f2f3f1elemf1f1f3 := []svcsdktypes.PortRange{}
 									for _, f5f2f3f1elemf1f1f3iter := range f5f2f3f1iter.RuleDefinition.MatchAttributes.SourcePorts {
-										f5f2f3f1elemf1f1f3elem := &svcsdk.PortRange{}
+										f5f2f3f1elemf1f1f3elem := &svcsdktypes.PortRange{}
 										if f5f2f3f1elemf1f1f3iter.FromPort != nil {
-											f5f2f3f1elemf1f1f3elem.SetFromPort(*f5f2f3f1elemf1f1f3iter.FromPort)
+											fromPortCopy0 := *f5f2f3f1elemf1f1f3iter.FromPort
+											if fromPortCopy0 > math.MaxInt32 || fromPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field FromPort is of type int32")
+											}
+											fromPortCopy := int32(fromPortCopy0)
+											f5f2f3f1elemf1f1f3elem.FromPort = fromPortCopy
 										}
 										if f5f2f3f1elemf1f1f3iter.ToPort != nil {
-											f5f2f3f1elemf1f1f3elem.SetToPort(*f5f2f3f1elemf1f1f3iter.ToPort)
+											toPortCopy0 := *f5f2f3f1elemf1f1f3iter.ToPort
+											if toPortCopy0 > math.MaxInt32 || toPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ToPort is of type int32")
+											}
+											toPortCopy := int32(toPortCopy0)
+											f5f2f3f1elemf1f1f3elem.ToPort = toPortCopy
 										}
-										f5f2f3f1elemf1f1f3 = append(f5f2f3f1elemf1f1f3, f5f2f3f1elemf1f1f3elem)
+										f5f2f3f1elemf1f1f3 = append(f5f2f3f1elemf1f1f3, *f5f2f3f1elemf1f1f3elem)
 									}
-									f5f2f3f1elemf1f1.SetSourcePorts(f5f2f3f1elemf1f1f3)
+									f5f2f3f1elemf1f1.SourcePorts = f5f2f3f1elemf1f1f3
 								}
 								if f5f2f3f1iter.RuleDefinition.MatchAttributes.Sources != nil {
-									f5f2f3f1elemf1f1f4 := []*svcsdk.Address{}
+									f5f2f3f1elemf1f1f4 := []svcsdktypes.Address{}
 									for _, f5f2f3f1elemf1f1f4iter := range f5f2f3f1iter.RuleDefinition.MatchAttributes.Sources {
-										f5f2f3f1elemf1f1f4elem := &svcsdk.Address{}
+										f5f2f3f1elemf1f1f4elem := &svcsdktypes.Address{}
 										if f5f2f3f1elemf1f1f4iter.AddressDefinition != nil {
-											f5f2f3f1elemf1f1f4elem.SetAddressDefinition(*f5f2f3f1elemf1f1f4iter.AddressDefinition)
+											f5f2f3f1elemf1f1f4elem.AddressDefinition = f5f2f3f1elemf1f1f4iter.AddressDefinition
 										}
-										f5f2f3f1elemf1f1f4 = append(f5f2f3f1elemf1f1f4, f5f2f3f1elemf1f1f4elem)
+										f5f2f3f1elemf1f1f4 = append(f5f2f3f1elemf1f1f4, *f5f2f3f1elemf1f1f4elem)
 									}
-									f5f2f3f1elemf1f1.SetSources(f5f2f3f1elemf1f1f4)
+									f5f2f3f1elemf1f1.Sources = f5f2f3f1elemf1f1f4
 								}
 								if f5f2f3f1iter.RuleDefinition.MatchAttributes.TCPFlags != nil {
-									f5f2f3f1elemf1f1f5 := []*svcsdk.TCPFlagField{}
+									f5f2f3f1elemf1f1f5 := []svcsdktypes.TCPFlagField{}
 									for _, f5f2f3f1elemf1f1f5iter := range f5f2f3f1iter.RuleDefinition.MatchAttributes.TCPFlags {
-										f5f2f3f1elemf1f1f5elem := &svcsdk.TCPFlagField{}
+										f5f2f3f1elemf1f1f5elem := &svcsdktypes.TCPFlagField{}
 										if f5f2f3f1elemf1f1f5iter.Flags != nil {
-											f5f2f3f1elemf1f1f5elemf0 := []*string{}
+											f5f2f3f1elemf1f1f5elemf0 := []svcsdktypes.TCPFlag{}
 											for _, f5f2f3f1elemf1f1f5elemf0iter := range f5f2f3f1elemf1f1f5iter.Flags {
 												var f5f2f3f1elemf1f1f5elemf0elem string
-												f5f2f3f1elemf1f1f5elemf0elem = *f5f2f3f1elemf1f1f5elemf0iter
-												f5f2f3f1elemf1f1f5elemf0 = append(f5f2f3f1elemf1f1f5elemf0, &f5f2f3f1elemf1f1f5elemf0elem)
+												f5f2f3f1elemf1f1f5elemf0elem = string(*f5f2f3f1elemf1f1f5elemf0iter)
+												f5f2f3f1elemf1f1f5elemf0 = append(f5f2f3f1elemf1f1f5elemf0, svcsdktypes.TCPFlag(f5f2f3f1elemf1f1f5elemf0elem))
 											}
-											f5f2f3f1elemf1f1f5elem.SetFlags(f5f2f3f1elemf1f1f5elemf0)
+											f5f2f3f1elemf1f1f5elem.Flags = f5f2f3f1elemf1f1f5elemf0
 										}
 										if f5f2f3f1elemf1f1f5iter.Masks != nil {
-											f5f2f3f1elemf1f1f5elemf1 := []*string{}
+											f5f2f3f1elemf1f1f5elemf1 := []svcsdktypes.TCPFlag{}
 											for _, f5f2f3f1elemf1f1f5elemf1iter := range f5f2f3f1elemf1f1f5iter.Masks {
 												var f5f2f3f1elemf1f1f5elemf1elem string
-												f5f2f3f1elemf1f1f5elemf1elem = *f5f2f3f1elemf1f1f5elemf1iter
-												f5f2f3f1elemf1f1f5elemf1 = append(f5f2f3f1elemf1f1f5elemf1, &f5f2f3f1elemf1f1f5elemf1elem)
+												f5f2f3f1elemf1f1f5elemf1elem = string(*f5f2f3f1elemf1f1f5elemf1iter)
+												f5f2f3f1elemf1f1f5elemf1 = append(f5f2f3f1elemf1f1f5elemf1, svcsdktypes.TCPFlag(f5f2f3f1elemf1f1f5elemf1elem))
 											}
-											f5f2f3f1elemf1f1f5elem.SetMasks(f5f2f3f1elemf1f1f5elemf1)
+											f5f2f3f1elemf1f1f5elem.Masks = f5f2f3f1elemf1f1f5elemf1
 										}
-										f5f2f3f1elemf1f1f5 = append(f5f2f3f1elemf1f1f5, f5f2f3f1elemf1f1f5elem)
+										f5f2f3f1elemf1f1f5 = append(f5f2f3f1elemf1f1f5, *f5f2f3f1elemf1f1f5elem)
 									}
-									f5f2f3f1elemf1f1.SetTCPFlags(f5f2f3f1elemf1f1f5)
+									f5f2f3f1elemf1f1.TCPFlags = f5f2f3f1elemf1f1f5
 								}
-								f5f2f3f1elemf1.SetMatchAttributes(f5f2f3f1elemf1f1)
+								f5f2f3f1elemf1.MatchAttributes = f5f2f3f1elemf1f1
 							}
-							f5f2f3f1elem.SetRuleDefinition(f5f2f3f1elemf1)
+							f5f2f3f1elem.RuleDefinition = f5f2f3f1elemf1
 						}
-						f5f2f3f1 = append(f5f2f3f1, f5f2f3f1elem)
+						f5f2f3f1 = append(f5f2f3f1, *f5f2f3f1elem)
 					}
-					f5f2f3.SetStatelessRules(f5f2f3f1)
+					f5f2f3.StatelessRules = f5f2f3f1
 				}
-				f5f2.SetStatelessRulesAndCustomActions(f5f2f3)
+				f5f2.StatelessRulesAndCustomActions = f5f2f3
 			}
-			f5.SetRulesSource(f5f2)
+			f5.RulesSource = f5f2
 		}
 		if r.ko.Spec.RuleGroup.StatefulRuleOptions != nil {
-			f5f3 := &svcsdk.StatefulRuleOptions{}
+			f5f3 := &svcsdktypes.StatefulRuleOptions{}
 			if r.ko.Spec.RuleGroup.StatefulRuleOptions.RuleOrder != nil {
-				f5f3.SetRuleOrder(*r.ko.Spec.RuleGroup.StatefulRuleOptions.RuleOrder)
+				f5f3.RuleOrder = svcsdktypes.RuleOrder(*r.ko.Spec.RuleGroup.StatefulRuleOptions.RuleOrder)
 			}
-			f5.SetStatefulRuleOptions(f5f3)
+			f5.StatefulRuleOptions = f5f3
 		}
-		res.SetRuleGroup(f5)
+		res.RuleGroup = f5
 	}
 	if r.ko.Spec.RuleGroupName != nil {
-		res.SetRuleGroupName(*r.ko.Spec.RuleGroupName)
+		res.RuleGroupName = r.ko.Spec.RuleGroupName
 	}
 	if r.ko.Spec.Rules != nil {
-		res.SetRules(*r.ko.Spec.Rules)
+		res.Rules = r.ko.Spec.Rules
 	}
 	if r.ko.Spec.SourceMetadata != nil {
-		f8 := &svcsdk.SourceMetadata{}
+		f8 := &svcsdktypes.SourceMetadata{}
 		if r.ko.Spec.SourceMetadata.SourceARN != nil {
-			f8.SetSourceArn(*r.ko.Spec.SourceMetadata.SourceARN)
+			f8.SourceArn = r.ko.Spec.SourceMetadata.SourceARN
 		}
 		if r.ko.Spec.SourceMetadata.SourceUpdateToken != nil {
-			f8.SetSourceUpdateToken(*r.ko.Spec.SourceMetadata.SourceUpdateToken)
+			f8.SourceUpdateToken = r.ko.Spec.SourceMetadata.SourceUpdateToken
 		}
-		res.SetSourceMetadata(f8)
+		res.SourceMetadata = f8
 	}
 	if r.ko.Spec.Tags != nil {
-		f9 := []*svcsdk.Tag{}
+		f9 := []svcsdktypes.Tag{}
 		for _, f9iter := range r.ko.Spec.Tags {
-			f9elem := &svcsdk.Tag{}
+			f9elem := &svcsdktypes.Tag{}
 			if f9iter.Key != nil {
-				f9elem.SetKey(*f9iter.Key)
+				f9elem.Key = f9iter.Key
 			}
 			if f9iter.Value != nil {
-				f9elem.SetValue(*f9iter.Value)
+				f9elem.Value = f9iter.Value
 			}
-			f9 = append(f9, f9elem)
+			f9 = append(f9, *f9elem)
 		}
-		res.SetTags(f9)
+		res.Tags = f9
 	}
 	if r.ko.Spec.Type != nil {
-		res.SetType(*r.ko.Spec.Type)
+		res.Type = svcsdktypes.RuleGroupType(*r.ko.Spec.Type)
 	}
 
 	return res, nil
@@ -1043,7 +1011,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateRuleGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateRuleGroup", err)
 	if err != nil {
 		return nil, err
@@ -1062,26 +1030,22 @@ func (rm *resourceManager) sdkUpdate(
 					f0f0elem.AnalysisDetail = f0f0iter.AnalysisDetail
 				}
 				if f0f0iter.IdentifiedRuleIds != nil {
-					f0f0elemf1 := []*string{}
-					for _, f0f0elemf1iter := range f0f0iter.IdentifiedRuleIds {
-						var f0f0elemf1elem string
-						f0f0elemf1elem = *f0f0elemf1iter
-						f0f0elemf1 = append(f0f0elemf1, &f0f0elemf1elem)
-					}
-					f0f0elem.IDentifiedRuleIDs = f0f0elemf1
+					f0f0elem.IDentifiedRuleIDs = aws.StringSlice(f0f0iter.IdentifiedRuleIds)
 				}
-				if f0f0iter.IdentifiedType != nil {
-					f0f0elem.IDentifiedType = f0f0iter.IdentifiedType
+				if f0f0iter.IdentifiedType != "" {
+					f0f0elem.IDentifiedType = aws.String(string(f0f0iter.IdentifiedType))
 				}
 				f0f0 = append(f0f0, f0f0elem)
 			}
 			f0.AnalysisResults = f0f0
 		}
 		if resp.RuleGroupResponse.Capacity != nil {
-			f0.Capacity = resp.RuleGroupResponse.Capacity
+			capacityCopy := int64(*resp.RuleGroupResponse.Capacity)
+			f0.Capacity = &capacityCopy
 		}
 		if resp.RuleGroupResponse.ConsumedCapacity != nil {
-			f0.ConsumedCapacity = resp.RuleGroupResponse.ConsumedCapacity
+			consumedCapacityCopy := int64(*resp.RuleGroupResponse.ConsumedCapacity)
+			f0.ConsumedCapacity = &consumedCapacityCopy
 		}
 		if resp.RuleGroupResponse.Description != nil {
 			f0.Description = resp.RuleGroupResponse.Description
@@ -1091,8 +1055,8 @@ func (rm *resourceManager) sdkUpdate(
 			if resp.RuleGroupResponse.EncryptionConfiguration.KeyId != nil {
 				f0f4.KeyID = resp.RuleGroupResponse.EncryptionConfiguration.KeyId
 			}
-			if resp.RuleGroupResponse.EncryptionConfiguration.Type != nil {
-				f0f4.Type = resp.RuleGroupResponse.EncryptionConfiguration.Type
+			if resp.RuleGroupResponse.EncryptionConfiguration.Type != "" {
+				f0f4.Type = aws.String(string(resp.RuleGroupResponse.EncryptionConfiguration.Type))
 			}
 			f0.EncryptionConfiguration = f0f4
 		}
@@ -1100,7 +1064,8 @@ func (rm *resourceManager) sdkUpdate(
 			f0.LastModifiedTime = &metav1.Time{*resp.RuleGroupResponse.LastModifiedTime}
 		}
 		if resp.RuleGroupResponse.NumberOfAssociations != nil {
-			f0.NumberOfAssociations = resp.RuleGroupResponse.NumberOfAssociations
+			numberOfAssociationsCopy := int64(*resp.RuleGroupResponse.NumberOfAssociations)
+			f0.NumberOfAssociations = &numberOfAssociationsCopy
 		}
 		if resp.RuleGroupResponse.RuleGroupArn != nil {
 			f0.RuleGroupARN = resp.RuleGroupResponse.RuleGroupArn
@@ -1111,8 +1076,8 @@ func (rm *resourceManager) sdkUpdate(
 		if resp.RuleGroupResponse.RuleGroupName != nil {
 			f0.RuleGroupName = resp.RuleGroupResponse.RuleGroupName
 		}
-		if resp.RuleGroupResponse.RuleGroupStatus != nil {
-			f0.RuleGroupStatus = resp.RuleGroupResponse.RuleGroupStatus
+		if resp.RuleGroupResponse.RuleGroupStatus != "" {
+			f0.RuleGroupStatus = aws.String(string(resp.RuleGroupResponse.RuleGroupStatus))
 		}
 		if resp.RuleGroupResponse.SnsTopic != nil {
 			f0.SNSTopic = resp.RuleGroupResponse.SnsTopic
@@ -1141,8 +1106,8 @@ func (rm *resourceManager) sdkUpdate(
 			}
 			f0.Tags = f0f13
 		}
-		if resp.RuleGroupResponse.Type != nil {
-			f0.Type = resp.RuleGroupResponse.Type
+		if resp.RuleGroupResponse.Type != "" {
+			f0.Type = aws.String(string(resp.RuleGroupResponse.Type))
 		}
 		ko.Status.RuleGroupResponse = f0
 	} else {
@@ -1168,344 +1133,344 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.UpdateRuleGroupInput{}
 
 	if r.ko.Spec.AnalyzeRuleGroup != nil {
-		res.SetAnalyzeRuleGroup(*r.ko.Spec.AnalyzeRuleGroup)
+		res.AnalyzeRuleGroup = *r.ko.Spec.AnalyzeRuleGroup
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.DryRun != nil {
-		res.SetDryRun(*r.ko.Spec.DryRun)
+		res.DryRun = *r.ko.Spec.DryRun
 	}
 	if r.ko.Spec.EncryptionConfiguration != nil {
-		f3 := &svcsdk.EncryptionConfiguration{}
+		f3 := &svcsdktypes.EncryptionConfiguration{}
 		if r.ko.Spec.EncryptionConfiguration.KeyID != nil {
-			f3.SetKeyId(*r.ko.Spec.EncryptionConfiguration.KeyID)
+			f3.KeyId = r.ko.Spec.EncryptionConfiguration.KeyID
 		}
 		if r.ko.Spec.EncryptionConfiguration.Type != nil {
-			f3.SetType(*r.ko.Spec.EncryptionConfiguration.Type)
+			f3.Type = svcsdktypes.EncryptionType(*r.ko.Spec.EncryptionConfiguration.Type)
 		}
-		res.SetEncryptionConfiguration(f3)
+		res.EncryptionConfiguration = f3
 	}
 	if r.ko.Spec.RuleGroup != nil {
-		f4 := &svcsdk.RuleGroup{}
+		f4 := &svcsdktypes.RuleGroup{}
 		if r.ko.Spec.RuleGroup.ReferenceSets != nil {
-			f4f0 := &svcsdk.ReferenceSets{}
+			f4f0 := &svcsdktypes.ReferenceSets{}
 			if r.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences != nil {
-				f4f0f0 := map[string]*svcsdk.IPSetReference{}
+				f4f0f0 := map[string]svcsdktypes.IPSetReference{}
 				for f4f0f0key, f4f0f0valiter := range r.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences {
-					f4f0f0val := &svcsdk.IPSetReference{}
+					f4f0f0val := &svcsdktypes.IPSetReference{}
 					if f4f0f0valiter.ReferenceARN != nil {
-						f4f0f0val.SetReferenceArn(*f4f0f0valiter.ReferenceARN)
+						f4f0f0val.ReferenceArn = f4f0f0valiter.ReferenceARN
 					}
-					f4f0f0[f4f0f0key] = f4f0f0val
+					f4f0f0[f4f0f0key] = *f4f0f0val
 				}
-				f4f0.SetIPSetReferences(f4f0f0)
+				f4f0.IPSetReferences = f4f0f0
 			}
-			f4.SetReferenceSets(f4f0)
+			f4.ReferenceSets = f4f0
 		}
 		if r.ko.Spec.RuleGroup.RuleVariables != nil {
-			f4f1 := &svcsdk.RuleVariables{}
+			f4f1 := &svcsdktypes.RuleVariables{}
 			if r.ko.Spec.RuleGroup.RuleVariables.IPSets != nil {
-				f4f1f0 := map[string]*svcsdk.IPSet{}
+				f4f1f0 := map[string]svcsdktypes.IPSet{}
 				for f4f1f0key, f4f1f0valiter := range r.ko.Spec.RuleGroup.RuleVariables.IPSets {
-					f4f1f0val := &svcsdk.IPSet{}
+					f4f1f0val := &svcsdktypes.IPSet{}
 					if f4f1f0valiter.Definition != nil {
-						f4f1f0valf0 := []*string{}
-						for _, f4f1f0valf0iter := range f4f1f0valiter.Definition {
-							var f4f1f0valf0elem string
-							f4f1f0valf0elem = *f4f1f0valf0iter
-							f4f1f0valf0 = append(f4f1f0valf0, &f4f1f0valf0elem)
-						}
-						f4f1f0val.SetDefinition(f4f1f0valf0)
+						f4f1f0val.Definition = aws.ToStringSlice(f4f1f0valiter.Definition)
 					}
-					f4f1f0[f4f1f0key] = f4f1f0val
+					f4f1f0[f4f1f0key] = *f4f1f0val
 				}
-				f4f1.SetIPSets(f4f1f0)
+				f4f1.IPSets = f4f1f0
 			}
 			if r.ko.Spec.RuleGroup.RuleVariables.PortSets != nil {
-				f4f1f1 := map[string]*svcsdk.PortSet{}
+				f4f1f1 := map[string]svcsdktypes.PortSet{}
 				for f4f1f1key, f4f1f1valiter := range r.ko.Spec.RuleGroup.RuleVariables.PortSets {
-					f4f1f1val := &svcsdk.PortSet{}
+					f4f1f1val := &svcsdktypes.PortSet{}
 					if f4f1f1valiter.Definition != nil {
-						f4f1f1valf0 := []*string{}
-						for _, f4f1f1valf0iter := range f4f1f1valiter.Definition {
-							var f4f1f1valf0elem string
-							f4f1f1valf0elem = *f4f1f1valf0iter
-							f4f1f1valf0 = append(f4f1f1valf0, &f4f1f1valf0elem)
-						}
-						f4f1f1val.SetDefinition(f4f1f1valf0)
+						f4f1f1val.Definition = aws.ToStringSlice(f4f1f1valiter.Definition)
 					}
-					f4f1f1[f4f1f1key] = f4f1f1val
+					f4f1f1[f4f1f1key] = *f4f1f1val
 				}
-				f4f1.SetPortSets(f4f1f1)
+				f4f1.PortSets = f4f1f1
 			}
-			f4.SetRuleVariables(f4f1)
+			f4.RuleVariables = f4f1
 		}
 		if r.ko.Spec.RuleGroup.RulesSource != nil {
-			f4f2 := &svcsdk.RulesSource{}
+			f4f2 := &svcsdktypes.RulesSource{}
 			if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList != nil {
-				f4f2f0 := &svcsdk.RulesSourceList{}
+				f4f2f0 := &svcsdktypes.RulesSourceList{}
 				if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType != nil {
-					f4f2f0.SetGeneratedRulesType(*r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType)
+					f4f2f0.GeneratedRulesType = svcsdktypes.GeneratedRulesType(*r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.GeneratedRulesType)
 				}
 				if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.TargetTypes != nil {
-					f4f2f0f1 := []*string{}
+					f4f2f0f1 := []svcsdktypes.TargetType{}
 					for _, f4f2f0f1iter := range r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.TargetTypes {
 						var f4f2f0f1elem string
-						f4f2f0f1elem = *f4f2f0f1iter
-						f4f2f0f1 = append(f4f2f0f1, &f4f2f0f1elem)
+						f4f2f0f1elem = string(*f4f2f0f1iter)
+						f4f2f0f1 = append(f4f2f0f1, svcsdktypes.TargetType(f4f2f0f1elem))
 					}
-					f4f2f0.SetTargetTypes(f4f2f0f1)
+					f4f2f0.TargetTypes = f4f2f0f1
 				}
 				if r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.Targets != nil {
-					f4f2f0f2 := []*string{}
-					for _, f4f2f0f2iter := range r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.Targets {
-						var f4f2f0f2elem string
-						f4f2f0f2elem = *f4f2f0f2iter
-						f4f2f0f2 = append(f4f2f0f2, &f4f2f0f2elem)
-					}
-					f4f2f0.SetTargets(f4f2f0f2)
+					f4f2f0.Targets = aws.ToStringSlice(r.ko.Spec.RuleGroup.RulesSource.RulesSourceList.Targets)
 				}
-				f4f2.SetRulesSourceList(f4f2f0)
+				f4f2.RulesSourceList = f4f2f0
 			}
 			if r.ko.Spec.RuleGroup.RulesSource.RulesString != nil {
-				f4f2.SetRulesString(*r.ko.Spec.RuleGroup.RulesSource.RulesString)
+				f4f2.RulesString = r.ko.Spec.RuleGroup.RulesSource.RulesString
 			}
 			if r.ko.Spec.RuleGroup.RulesSource.StatefulRules != nil {
-				f4f2f2 := []*svcsdk.StatefulRule{}
+				f4f2f2 := []svcsdktypes.StatefulRule{}
 				for _, f4f2f2iter := range r.ko.Spec.RuleGroup.RulesSource.StatefulRules {
-					f4f2f2elem := &svcsdk.StatefulRule{}
+					f4f2f2elem := &svcsdktypes.StatefulRule{}
 					if f4f2f2iter.Action != nil {
-						f4f2f2elem.SetAction(*f4f2f2iter.Action)
+						f4f2f2elem.Action = svcsdktypes.StatefulAction(*f4f2f2iter.Action)
 					}
 					if f4f2f2iter.Header != nil {
-						f4f2f2elemf1 := &svcsdk.Header{}
+						f4f2f2elemf1 := &svcsdktypes.Header{}
 						if f4f2f2iter.Header.Destination != nil {
-							f4f2f2elemf1.SetDestination(*f4f2f2iter.Header.Destination)
+							f4f2f2elemf1.Destination = f4f2f2iter.Header.Destination
 						}
 						if f4f2f2iter.Header.DestinationPort != nil {
-							f4f2f2elemf1.SetDestinationPort(*f4f2f2iter.Header.DestinationPort)
+							f4f2f2elemf1.DestinationPort = f4f2f2iter.Header.DestinationPort
 						}
 						if f4f2f2iter.Header.Direction != nil {
-							f4f2f2elemf1.SetDirection(*f4f2f2iter.Header.Direction)
+							f4f2f2elemf1.Direction = svcsdktypes.StatefulRuleDirection(*f4f2f2iter.Header.Direction)
 						}
 						if f4f2f2iter.Header.Protocol != nil {
-							f4f2f2elemf1.SetProtocol(*f4f2f2iter.Header.Protocol)
+							f4f2f2elemf1.Protocol = svcsdktypes.StatefulRuleProtocol(*f4f2f2iter.Header.Protocol)
 						}
 						if f4f2f2iter.Header.Source != nil {
-							f4f2f2elemf1.SetSource(*f4f2f2iter.Header.Source)
+							f4f2f2elemf1.Source = f4f2f2iter.Header.Source
 						}
 						if f4f2f2iter.Header.SourcePort != nil {
-							f4f2f2elemf1.SetSourcePort(*f4f2f2iter.Header.SourcePort)
+							f4f2f2elemf1.SourcePort = f4f2f2iter.Header.SourcePort
 						}
-						f4f2f2elem.SetHeader(f4f2f2elemf1)
+						f4f2f2elem.Header = f4f2f2elemf1
 					}
 					if f4f2f2iter.RuleOptions != nil {
-						f4f2f2elemf2 := []*svcsdk.RuleOption{}
+						f4f2f2elemf2 := []svcsdktypes.RuleOption{}
 						for _, f4f2f2elemf2iter := range f4f2f2iter.RuleOptions {
-							f4f2f2elemf2elem := &svcsdk.RuleOption{}
+							f4f2f2elemf2elem := &svcsdktypes.RuleOption{}
 							if f4f2f2elemf2iter.Keyword != nil {
-								f4f2f2elemf2elem.SetKeyword(*f4f2f2elemf2iter.Keyword)
+								f4f2f2elemf2elem.Keyword = f4f2f2elemf2iter.Keyword
 							}
 							if f4f2f2elemf2iter.Settings != nil {
-								f4f2f2elemf2elemf1 := []*string{}
-								for _, f4f2f2elemf2elemf1iter := range f4f2f2elemf2iter.Settings {
-									var f4f2f2elemf2elemf1elem string
-									f4f2f2elemf2elemf1elem = *f4f2f2elemf2elemf1iter
-									f4f2f2elemf2elemf1 = append(f4f2f2elemf2elemf1, &f4f2f2elemf2elemf1elem)
-								}
-								f4f2f2elemf2elem.SetSettings(f4f2f2elemf2elemf1)
+								f4f2f2elemf2elem.Settings = aws.ToStringSlice(f4f2f2elemf2iter.Settings)
 							}
-							f4f2f2elemf2 = append(f4f2f2elemf2, f4f2f2elemf2elem)
+							f4f2f2elemf2 = append(f4f2f2elemf2, *f4f2f2elemf2elem)
 						}
-						f4f2f2elem.SetRuleOptions(f4f2f2elemf2)
+						f4f2f2elem.RuleOptions = f4f2f2elemf2
 					}
-					f4f2f2 = append(f4f2f2, f4f2f2elem)
+					f4f2f2 = append(f4f2f2, *f4f2f2elem)
 				}
-				f4f2.SetStatefulRules(f4f2f2)
+				f4f2.StatefulRules = f4f2f2
 			}
 			if r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions != nil {
-				f4f2f3 := &svcsdk.StatelessRulesAndCustomActions{}
+				f4f2f3 := &svcsdktypes.StatelessRulesAndCustomActions{}
 				if r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions != nil {
-					f4f2f3f0 := []*svcsdk.CustomAction{}
+					f4f2f3f0 := []svcsdktypes.CustomAction{}
 					for _, f4f2f3f0iter := range r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions {
-						f4f2f3f0elem := &svcsdk.CustomAction{}
+						f4f2f3f0elem := &svcsdktypes.CustomAction{}
 						if f4f2f3f0iter.ActionDefinition != nil {
-							f4f2f3f0elemf0 := &svcsdk.ActionDefinition{}
+							f4f2f3f0elemf0 := &svcsdktypes.ActionDefinition{}
 							if f4f2f3f0iter.ActionDefinition.PublishMetricAction != nil {
-								f4f2f3f0elemf0f0 := &svcsdk.PublishMetricAction{}
+								f4f2f3f0elemf0f0 := &svcsdktypes.PublishMetricAction{}
 								if f4f2f3f0iter.ActionDefinition.PublishMetricAction.Dimensions != nil {
-									f4f2f3f0elemf0f0f0 := []*svcsdk.Dimension{}
+									f4f2f3f0elemf0f0f0 := []svcsdktypes.Dimension{}
 									for _, f4f2f3f0elemf0f0f0iter := range f4f2f3f0iter.ActionDefinition.PublishMetricAction.Dimensions {
-										f4f2f3f0elemf0f0f0elem := &svcsdk.Dimension{}
+										f4f2f3f0elemf0f0f0elem := &svcsdktypes.Dimension{}
 										if f4f2f3f0elemf0f0f0iter.Value != nil {
-											f4f2f3f0elemf0f0f0elem.SetValue(*f4f2f3f0elemf0f0f0iter.Value)
+											f4f2f3f0elemf0f0f0elem.Value = f4f2f3f0elemf0f0f0iter.Value
 										}
-										f4f2f3f0elemf0f0f0 = append(f4f2f3f0elemf0f0f0, f4f2f3f0elemf0f0f0elem)
+										f4f2f3f0elemf0f0f0 = append(f4f2f3f0elemf0f0f0, *f4f2f3f0elemf0f0f0elem)
 									}
-									f4f2f3f0elemf0f0.SetDimensions(f4f2f3f0elemf0f0f0)
+									f4f2f3f0elemf0f0.Dimensions = f4f2f3f0elemf0f0f0
 								}
-								f4f2f3f0elemf0.SetPublishMetricAction(f4f2f3f0elemf0f0)
+								f4f2f3f0elemf0.PublishMetricAction = f4f2f3f0elemf0f0
 							}
-							f4f2f3f0elem.SetActionDefinition(f4f2f3f0elemf0)
+							f4f2f3f0elem.ActionDefinition = f4f2f3f0elemf0
 						}
 						if f4f2f3f0iter.ActionName != nil {
-							f4f2f3f0elem.SetActionName(*f4f2f3f0iter.ActionName)
+							f4f2f3f0elem.ActionName = f4f2f3f0iter.ActionName
 						}
-						f4f2f3f0 = append(f4f2f3f0, f4f2f3f0elem)
+						f4f2f3f0 = append(f4f2f3f0, *f4f2f3f0elem)
 					}
-					f4f2f3.SetCustomActions(f4f2f3f0)
+					f4f2f3.CustomActions = f4f2f3f0
 				}
 				if r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules != nil {
-					f4f2f3f1 := []*svcsdk.StatelessRule{}
+					f4f2f3f1 := []svcsdktypes.StatelessRule{}
 					for _, f4f2f3f1iter := range r.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules {
-						f4f2f3f1elem := &svcsdk.StatelessRule{}
+						f4f2f3f1elem := &svcsdktypes.StatelessRule{}
 						if f4f2f3f1iter.Priority != nil {
-							f4f2f3f1elem.SetPriority(*f4f2f3f1iter.Priority)
+							priorityCopy0 := *f4f2f3f1iter.Priority
+							if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+								return nil, fmt.Errorf("error: field Priority is of type int32")
+							}
+							priorityCopy := int32(priorityCopy0)
+							f4f2f3f1elem.Priority = &priorityCopy
 						}
 						if f4f2f3f1iter.RuleDefinition != nil {
-							f4f2f3f1elemf1 := &svcsdk.RuleDefinition{}
+							f4f2f3f1elemf1 := &svcsdktypes.RuleDefinition{}
 							if f4f2f3f1iter.RuleDefinition.Actions != nil {
-								f4f2f3f1elemf1f0 := []*string{}
-								for _, f4f2f3f1elemf1f0iter := range f4f2f3f1iter.RuleDefinition.Actions {
-									var f4f2f3f1elemf1f0elem string
-									f4f2f3f1elemf1f0elem = *f4f2f3f1elemf1f0iter
-									f4f2f3f1elemf1f0 = append(f4f2f3f1elemf1f0, &f4f2f3f1elemf1f0elem)
-								}
-								f4f2f3f1elemf1.SetActions(f4f2f3f1elemf1f0)
+								f4f2f3f1elemf1.Actions = aws.ToStringSlice(f4f2f3f1iter.RuleDefinition.Actions)
 							}
 							if f4f2f3f1iter.RuleDefinition.MatchAttributes != nil {
-								f4f2f3f1elemf1f1 := &svcsdk.MatchAttributes{}
+								f4f2f3f1elemf1f1 := &svcsdktypes.MatchAttributes{}
 								if f4f2f3f1iter.RuleDefinition.MatchAttributes.DestinationPorts != nil {
-									f4f2f3f1elemf1f1f0 := []*svcsdk.PortRange{}
+									f4f2f3f1elemf1f1f0 := []svcsdktypes.PortRange{}
 									for _, f4f2f3f1elemf1f1f0iter := range f4f2f3f1iter.RuleDefinition.MatchAttributes.DestinationPorts {
-										f4f2f3f1elemf1f1f0elem := &svcsdk.PortRange{}
+										f4f2f3f1elemf1f1f0elem := &svcsdktypes.PortRange{}
 										if f4f2f3f1elemf1f1f0iter.FromPort != nil {
-											f4f2f3f1elemf1f1f0elem.SetFromPort(*f4f2f3f1elemf1f1f0iter.FromPort)
+											fromPortCopy0 := *f4f2f3f1elemf1f1f0iter.FromPort
+											if fromPortCopy0 > math.MaxInt32 || fromPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field FromPort is of type int32")
+											}
+											fromPortCopy := int32(fromPortCopy0)
+											f4f2f3f1elemf1f1f0elem.FromPort = fromPortCopy
 										}
 										if f4f2f3f1elemf1f1f0iter.ToPort != nil {
-											f4f2f3f1elemf1f1f0elem.SetToPort(*f4f2f3f1elemf1f1f0iter.ToPort)
+											toPortCopy0 := *f4f2f3f1elemf1f1f0iter.ToPort
+											if toPortCopy0 > math.MaxInt32 || toPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ToPort is of type int32")
+											}
+											toPortCopy := int32(toPortCopy0)
+											f4f2f3f1elemf1f1f0elem.ToPort = toPortCopy
 										}
-										f4f2f3f1elemf1f1f0 = append(f4f2f3f1elemf1f1f0, f4f2f3f1elemf1f1f0elem)
+										f4f2f3f1elemf1f1f0 = append(f4f2f3f1elemf1f1f0, *f4f2f3f1elemf1f1f0elem)
 									}
-									f4f2f3f1elemf1f1.SetDestinationPorts(f4f2f3f1elemf1f1f0)
+									f4f2f3f1elemf1f1.DestinationPorts = f4f2f3f1elemf1f1f0
 								}
 								if f4f2f3f1iter.RuleDefinition.MatchAttributes.Destinations != nil {
-									f4f2f3f1elemf1f1f1 := []*svcsdk.Address{}
+									f4f2f3f1elemf1f1f1 := []svcsdktypes.Address{}
 									for _, f4f2f3f1elemf1f1f1iter := range f4f2f3f1iter.RuleDefinition.MatchAttributes.Destinations {
-										f4f2f3f1elemf1f1f1elem := &svcsdk.Address{}
+										f4f2f3f1elemf1f1f1elem := &svcsdktypes.Address{}
 										if f4f2f3f1elemf1f1f1iter.AddressDefinition != nil {
-											f4f2f3f1elemf1f1f1elem.SetAddressDefinition(*f4f2f3f1elemf1f1f1iter.AddressDefinition)
+											f4f2f3f1elemf1f1f1elem.AddressDefinition = f4f2f3f1elemf1f1f1iter.AddressDefinition
 										}
-										f4f2f3f1elemf1f1f1 = append(f4f2f3f1elemf1f1f1, f4f2f3f1elemf1f1f1elem)
+										f4f2f3f1elemf1f1f1 = append(f4f2f3f1elemf1f1f1, *f4f2f3f1elemf1f1f1elem)
 									}
-									f4f2f3f1elemf1f1.SetDestinations(f4f2f3f1elemf1f1f1)
+									f4f2f3f1elemf1f1.Destinations = f4f2f3f1elemf1f1f1
 								}
 								if f4f2f3f1iter.RuleDefinition.MatchAttributes.Protocols != nil {
-									f4f2f3f1elemf1f1f2 := []*int64{}
+									f4f2f3f1elemf1f1f2 := []int32{}
 									for _, f4f2f3f1elemf1f1f2iter := range f4f2f3f1iter.RuleDefinition.MatchAttributes.Protocols {
-										var f4f2f3f1elemf1f1f2elem int64
-										f4f2f3f1elemf1f1f2elem = *f4f2f3f1elemf1f1f2iter
-										f4f2f3f1elemf1f1f2 = append(f4f2f3f1elemf1f1f2, &f4f2f3f1elemf1f1f2elem)
+										var f4f2f3f1elemf1f1f2elem int32
+										protocolNumberCopy0 := *f4f2f3f1elemf1f1f2iter
+										if protocolNumberCopy0 > math.MaxInt32 || protocolNumberCopy0 < math.MinInt32 {
+											return nil, fmt.Errorf("error: field ProtocolNumber is of type int32")
+										}
+										protocolNumberCopy := int32(protocolNumberCopy0)
+										f4f2f3f1elemf1f1f2elem = protocolNumberCopy
+										f4f2f3f1elemf1f1f2 = append(f4f2f3f1elemf1f1f2, f4f2f3f1elemf1f1f2elem)
 									}
-									f4f2f3f1elemf1f1.SetProtocols(f4f2f3f1elemf1f1f2)
+									f4f2f3f1elemf1f1.Protocols = f4f2f3f1elemf1f1f2
 								}
 								if f4f2f3f1iter.RuleDefinition.MatchAttributes.SourcePorts != nil {
-									f4f2f3f1elemf1f1f3 := []*svcsdk.PortRange{}
+									f4f2f3f1elemf1f1f3 := []svcsdktypes.PortRange{}
 									for _, f4f2f3f1elemf1f1f3iter := range f4f2f3f1iter.RuleDefinition.MatchAttributes.SourcePorts {
-										f4f2f3f1elemf1f1f3elem := &svcsdk.PortRange{}
+										f4f2f3f1elemf1f1f3elem := &svcsdktypes.PortRange{}
 										if f4f2f3f1elemf1f1f3iter.FromPort != nil {
-											f4f2f3f1elemf1f1f3elem.SetFromPort(*f4f2f3f1elemf1f1f3iter.FromPort)
+											fromPortCopy0 := *f4f2f3f1elemf1f1f3iter.FromPort
+											if fromPortCopy0 > math.MaxInt32 || fromPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field FromPort is of type int32")
+											}
+											fromPortCopy := int32(fromPortCopy0)
+											f4f2f3f1elemf1f1f3elem.FromPort = fromPortCopy
 										}
 										if f4f2f3f1elemf1f1f3iter.ToPort != nil {
-											f4f2f3f1elemf1f1f3elem.SetToPort(*f4f2f3f1elemf1f1f3iter.ToPort)
+											toPortCopy0 := *f4f2f3f1elemf1f1f3iter.ToPort
+											if toPortCopy0 > math.MaxInt32 || toPortCopy0 < math.MinInt32 {
+												return nil, fmt.Errorf("error: field ToPort is of type int32")
+											}
+											toPortCopy := int32(toPortCopy0)
+											f4f2f3f1elemf1f1f3elem.ToPort = toPortCopy
 										}
-										f4f2f3f1elemf1f1f3 = append(f4f2f3f1elemf1f1f3, f4f2f3f1elemf1f1f3elem)
+										f4f2f3f1elemf1f1f3 = append(f4f2f3f1elemf1f1f3, *f4f2f3f1elemf1f1f3elem)
 									}
-									f4f2f3f1elemf1f1.SetSourcePorts(f4f2f3f1elemf1f1f3)
+									f4f2f3f1elemf1f1.SourcePorts = f4f2f3f1elemf1f1f3
 								}
 								if f4f2f3f1iter.RuleDefinition.MatchAttributes.Sources != nil {
-									f4f2f3f1elemf1f1f4 := []*svcsdk.Address{}
+									f4f2f3f1elemf1f1f4 := []svcsdktypes.Address{}
 									for _, f4f2f3f1elemf1f1f4iter := range f4f2f3f1iter.RuleDefinition.MatchAttributes.Sources {
-										f4f2f3f1elemf1f1f4elem := &svcsdk.Address{}
+										f4f2f3f1elemf1f1f4elem := &svcsdktypes.Address{}
 										if f4f2f3f1elemf1f1f4iter.AddressDefinition != nil {
-											f4f2f3f1elemf1f1f4elem.SetAddressDefinition(*f4f2f3f1elemf1f1f4iter.AddressDefinition)
+											f4f2f3f1elemf1f1f4elem.AddressDefinition = f4f2f3f1elemf1f1f4iter.AddressDefinition
 										}
-										f4f2f3f1elemf1f1f4 = append(f4f2f3f1elemf1f1f4, f4f2f3f1elemf1f1f4elem)
+										f4f2f3f1elemf1f1f4 = append(f4f2f3f1elemf1f1f4, *f4f2f3f1elemf1f1f4elem)
 									}
-									f4f2f3f1elemf1f1.SetSources(f4f2f3f1elemf1f1f4)
+									f4f2f3f1elemf1f1.Sources = f4f2f3f1elemf1f1f4
 								}
 								if f4f2f3f1iter.RuleDefinition.MatchAttributes.TCPFlags != nil {
-									f4f2f3f1elemf1f1f5 := []*svcsdk.TCPFlagField{}
+									f4f2f3f1elemf1f1f5 := []svcsdktypes.TCPFlagField{}
 									for _, f4f2f3f1elemf1f1f5iter := range f4f2f3f1iter.RuleDefinition.MatchAttributes.TCPFlags {
-										f4f2f3f1elemf1f1f5elem := &svcsdk.TCPFlagField{}
+										f4f2f3f1elemf1f1f5elem := &svcsdktypes.TCPFlagField{}
 										if f4f2f3f1elemf1f1f5iter.Flags != nil {
-											f4f2f3f1elemf1f1f5elemf0 := []*string{}
+											f4f2f3f1elemf1f1f5elemf0 := []svcsdktypes.TCPFlag{}
 											for _, f4f2f3f1elemf1f1f5elemf0iter := range f4f2f3f1elemf1f1f5iter.Flags {
 												var f4f2f3f1elemf1f1f5elemf0elem string
-												f4f2f3f1elemf1f1f5elemf0elem = *f4f2f3f1elemf1f1f5elemf0iter
-												f4f2f3f1elemf1f1f5elemf0 = append(f4f2f3f1elemf1f1f5elemf0, &f4f2f3f1elemf1f1f5elemf0elem)
+												f4f2f3f1elemf1f1f5elemf0elem = string(*f4f2f3f1elemf1f1f5elemf0iter)
+												f4f2f3f1elemf1f1f5elemf0 = append(f4f2f3f1elemf1f1f5elemf0, svcsdktypes.TCPFlag(f4f2f3f1elemf1f1f5elemf0elem))
 											}
-											f4f2f3f1elemf1f1f5elem.SetFlags(f4f2f3f1elemf1f1f5elemf0)
+											f4f2f3f1elemf1f1f5elem.Flags = f4f2f3f1elemf1f1f5elemf0
 										}
 										if f4f2f3f1elemf1f1f5iter.Masks != nil {
-											f4f2f3f1elemf1f1f5elemf1 := []*string{}
+											f4f2f3f1elemf1f1f5elemf1 := []svcsdktypes.TCPFlag{}
 											for _, f4f2f3f1elemf1f1f5elemf1iter := range f4f2f3f1elemf1f1f5iter.Masks {
 												var f4f2f3f1elemf1f1f5elemf1elem string
-												f4f2f3f1elemf1f1f5elemf1elem = *f4f2f3f1elemf1f1f5elemf1iter
-												f4f2f3f1elemf1f1f5elemf1 = append(f4f2f3f1elemf1f1f5elemf1, &f4f2f3f1elemf1f1f5elemf1elem)
+												f4f2f3f1elemf1f1f5elemf1elem = string(*f4f2f3f1elemf1f1f5elemf1iter)
+												f4f2f3f1elemf1f1f5elemf1 = append(f4f2f3f1elemf1f1f5elemf1, svcsdktypes.TCPFlag(f4f2f3f1elemf1f1f5elemf1elem))
 											}
-											f4f2f3f1elemf1f1f5elem.SetMasks(f4f2f3f1elemf1f1f5elemf1)
+											f4f2f3f1elemf1f1f5elem.Masks = f4f2f3f1elemf1f1f5elemf1
 										}
-										f4f2f3f1elemf1f1f5 = append(f4f2f3f1elemf1f1f5, f4f2f3f1elemf1f1f5elem)
+										f4f2f3f1elemf1f1f5 = append(f4f2f3f1elemf1f1f5, *f4f2f3f1elemf1f1f5elem)
 									}
-									f4f2f3f1elemf1f1.SetTCPFlags(f4f2f3f1elemf1f1f5)
+									f4f2f3f1elemf1f1.TCPFlags = f4f2f3f1elemf1f1f5
 								}
-								f4f2f3f1elemf1.SetMatchAttributes(f4f2f3f1elemf1f1)
+								f4f2f3f1elemf1.MatchAttributes = f4f2f3f1elemf1f1
 							}
-							f4f2f3f1elem.SetRuleDefinition(f4f2f3f1elemf1)
+							f4f2f3f1elem.RuleDefinition = f4f2f3f1elemf1
 						}
-						f4f2f3f1 = append(f4f2f3f1, f4f2f3f1elem)
+						f4f2f3f1 = append(f4f2f3f1, *f4f2f3f1elem)
 					}
-					f4f2f3.SetStatelessRules(f4f2f3f1)
+					f4f2f3.StatelessRules = f4f2f3f1
 				}
-				f4f2.SetStatelessRulesAndCustomActions(f4f2f3)
+				f4f2.StatelessRulesAndCustomActions = f4f2f3
 			}
-			f4.SetRulesSource(f4f2)
+			f4.RulesSource = f4f2
 		}
 		if r.ko.Spec.RuleGroup.StatefulRuleOptions != nil {
-			f4f3 := &svcsdk.StatefulRuleOptions{}
+			f4f3 := &svcsdktypes.StatefulRuleOptions{}
 			if r.ko.Spec.RuleGroup.StatefulRuleOptions.RuleOrder != nil {
-				f4f3.SetRuleOrder(*r.ko.Spec.RuleGroup.StatefulRuleOptions.RuleOrder)
+				f4f3.RuleOrder = svcsdktypes.RuleOrder(*r.ko.Spec.RuleGroup.StatefulRuleOptions.RuleOrder)
 			}
-			f4.SetStatefulRuleOptions(f4f3)
+			f4.StatefulRuleOptions = f4f3
 		}
-		res.SetRuleGroup(f4)
+		res.RuleGroup = f4
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetRuleGroupArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.RuleGroupArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.RuleGroupName != nil {
-		res.SetRuleGroupName(*r.ko.Spec.RuleGroupName)
+		res.RuleGroupName = r.ko.Spec.RuleGroupName
 	}
 	if r.ko.Spec.Rules != nil {
-		res.SetRules(*r.ko.Spec.Rules)
+		res.Rules = r.ko.Spec.Rules
 	}
 	if r.ko.Spec.SourceMetadata != nil {
-		f8 := &svcsdk.SourceMetadata{}
+		f8 := &svcsdktypes.SourceMetadata{}
 		if r.ko.Spec.SourceMetadata.SourceARN != nil {
-			f8.SetSourceArn(*r.ko.Spec.SourceMetadata.SourceARN)
+			f8.SourceArn = r.ko.Spec.SourceMetadata.SourceARN
 		}
 		if r.ko.Spec.SourceMetadata.SourceUpdateToken != nil {
-			f8.SetSourceUpdateToken(*r.ko.Spec.SourceMetadata.SourceUpdateToken)
+			f8.SourceUpdateToken = r.ko.Spec.SourceMetadata.SourceUpdateToken
 		}
-		res.SetSourceMetadata(f8)
+		res.SourceMetadata = f8
 	}
 	if r.ko.Spec.Type != nil {
-		res.SetType(*r.ko.Spec.Type)
+		res.Type = svcsdktypes.RuleGroupType(*r.ko.Spec.Type)
 	}
 	if r.ko.Status.UpdateToken != nil {
-		res.SetUpdateToken(*r.ko.Status.UpdateToken)
+		res.UpdateToken = r.ko.Status.UpdateToken
 	}
 
 	return res, nil
@@ -1527,7 +1492,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteRuleGroupOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteRuleGroupWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteRuleGroup(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteRuleGroup", err)
 	return nil, err
 }
@@ -1540,13 +1505,13 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteRuleGroupInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetRuleGroupArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.RuleGroupArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.RuleGroupName != nil {
-		res.SetRuleGroupName(*r.ko.Spec.RuleGroupName)
+		res.RuleGroupName = r.ko.Spec.RuleGroupName
 	}
 	if r.ko.Spec.Type != nil {
-		res.SetType(*r.ko.Spec.Type)
+		res.Type = svcsdktypes.RuleGroupType(*r.ko.Spec.Type)
 	}
 
 	return res, nil
@@ -1654,11 +1619,12 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "InvalidRequestException":
 		return true
 	default:

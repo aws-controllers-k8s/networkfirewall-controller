@@ -18,8 +18,8 @@
 // with each the field set by the resource's corresponding spec field.
 func (rm *resourceManager) new{{ $memberRefName }}(
     r *resource,
-) *svcsdk.{{ $memberRef.ShapeName }} {
-    res := &svcsdk.{{ $memberRef.ShapeName }}{}
+) *svcsdktypes.{{ $memberRef.ShapeName }} {
+    res := &svcsdktypes.{{ $memberRef.ShapeName }}{}
 
 {{ GoCodeSetSDKForStruct $CRD "" "res" $memberRef "" (printf "r.ko.Spec.%s" $specFieldName) 1 }}
 

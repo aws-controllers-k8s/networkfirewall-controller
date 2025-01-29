@@ -28,8 +28,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/networkfirewall"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/networkfirewall"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/networkfirewall/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +42,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.NetworkFirewall{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.Firewall{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +50,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +76,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.DescribeFirewallOutput
-	resp, err = rm.sdkapi.DescribeFirewallWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeFirewall(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeFirewall", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ResourceNotFoundException" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -92,9 +92,7 @@ func (rm *resourceManager) sdkFind(
 
 	if resp.Firewall != nil {
 		f0 := &svcapitypes.Firewall_SDK{}
-		if resp.Firewall.DeleteProtection != nil {
-			f0.DeleteProtection = resp.Firewall.DeleteProtection
-		}
+		f0.DeleteProtection = &resp.Firewall.DeleteProtection
 		if resp.Firewall.Description != nil {
 			f0.Description = resp.Firewall.Description
 		}
@@ -103,8 +101,8 @@ func (rm *resourceManager) sdkFind(
 			if resp.Firewall.EncryptionConfiguration.KeyId != nil {
 				f0f2.KeyID = resp.Firewall.EncryptionConfiguration.KeyId
 			}
-			if resp.Firewall.EncryptionConfiguration.Type != nil {
-				f0f2.Type = resp.Firewall.EncryptionConfiguration.Type
+			if resp.Firewall.EncryptionConfiguration.Type != "" {
+				f0f2.Type = aws.String(string(resp.Firewall.EncryptionConfiguration.Type))
 			}
 			f0.EncryptionConfiguration = f0f2
 		}
@@ -120,18 +118,14 @@ func (rm *resourceManager) sdkFind(
 		if resp.Firewall.FirewallPolicyArn != nil {
 			f0.FirewallPolicyARN = resp.Firewall.FirewallPolicyArn
 		}
-		if resp.Firewall.FirewallPolicyChangeProtection != nil {
-			f0.FirewallPolicyChangeProtection = resp.Firewall.FirewallPolicyChangeProtection
-		}
-		if resp.Firewall.SubnetChangeProtection != nil {
-			f0.SubnetChangeProtection = resp.Firewall.SubnetChangeProtection
-		}
+		f0.FirewallPolicyChangeProtection = &resp.Firewall.FirewallPolicyChangeProtection
+		f0.SubnetChangeProtection = &resp.Firewall.SubnetChangeProtection
 		if resp.Firewall.SubnetMappings != nil {
 			f0f9 := []*svcapitypes.SubnetMapping{}
 			for _, f0f9iter := range resp.Firewall.SubnetMappings {
 				f0f9elem := &svcapitypes.SubnetMapping{}
-				if f0f9iter.IPAddressType != nil {
-					f0f9elem.IPAddressType = f0f9iter.IPAddressType
+				if f0f9iter.IPAddressType != "" {
+					f0f9elem.IPAddressType = aws.String(string(f0f9iter.IPAddressType))
 				}
 				if f0f9iter.SubnetId != nil {
 					f0f9elem.SubnetID = f0f9iter.SubnetId
@@ -168,31 +162,34 @@ func (rm *resourceManager) sdkFind(
 			if resp.FirewallStatus.CapacityUsageSummary.CIDRs != nil {
 				f1f0f0 := &svcapitypes.CIDRSummary{}
 				if resp.FirewallStatus.CapacityUsageSummary.CIDRs.AvailableCIDRCount != nil {
-					f1f0f0.AvailableCIDRCount = resp.FirewallStatus.CapacityUsageSummary.CIDRs.AvailableCIDRCount
+					availableCIDRCountCopy := int64(*resp.FirewallStatus.CapacityUsageSummary.CIDRs.AvailableCIDRCount)
+					f1f0f0.AvailableCIDRCount = &availableCIDRCountCopy
 				}
 				if resp.FirewallStatus.CapacityUsageSummary.CIDRs.IPSetReferences != nil {
 					f1f0f0f1 := map[string]*svcapitypes.IPSetMetadata{}
 					for f1f0f0f1key, f1f0f0f1valiter := range resp.FirewallStatus.CapacityUsageSummary.CIDRs.IPSetReferences {
 						f1f0f0f1val := &svcapitypes.IPSetMetadata{}
 						if f1f0f0f1valiter.ResolvedCIDRCount != nil {
-							f1f0f0f1val.ResolvedCIDRCount = f1f0f0f1valiter.ResolvedCIDRCount
+							resolvedCIDRCountCopy := int64(*f1f0f0f1valiter.ResolvedCIDRCount)
+							f1f0f0f1val.ResolvedCIDRCount = &resolvedCIDRCountCopy
 						}
 						f1f0f0f1[f1f0f0f1key] = f1f0f0f1val
 					}
 					f1f0f0.IPSetReferences = f1f0f0f1
 				}
 				if resp.FirewallStatus.CapacityUsageSummary.CIDRs.UtilizedCIDRCount != nil {
-					f1f0f0.UtilizedCIDRCount = resp.FirewallStatus.CapacityUsageSummary.CIDRs.UtilizedCIDRCount
+					utilizedCIDRCountCopy := int64(*resp.FirewallStatus.CapacityUsageSummary.CIDRs.UtilizedCIDRCount)
+					f1f0f0.UtilizedCIDRCount = &utilizedCIDRCountCopy
 				}
 				f1f0.CIDRs = f1f0f0
 			}
 			f1.CapacityUsageSummary = f1f0
 		}
-		if resp.FirewallStatus.ConfigurationSyncStateSummary != nil {
-			f1.ConfigurationSyncStateSummary = resp.FirewallStatus.ConfigurationSyncStateSummary
+		if resp.FirewallStatus.ConfigurationSyncStateSummary != "" {
+			f1.ConfigurationSyncStateSummary = aws.String(string(resp.FirewallStatus.ConfigurationSyncStateSummary))
 		}
-		if resp.FirewallStatus.Status != nil {
-			f1.Status = resp.FirewallStatus.Status
+		if resp.FirewallStatus.Status != "" {
+			f1.Status = aws.String(string(resp.FirewallStatus.Status))
 		}
 		if resp.FirewallStatus.SyncStates != nil {
 			f1f3 := map[string]*svcapitypes.SyncState{}
@@ -203,8 +200,8 @@ func (rm *resourceManager) sdkFind(
 					if f1f3valiter.Attachment.EndpointId != nil {
 						f1f3valf0.EndpointID = f1f3valiter.Attachment.EndpointId
 					}
-					if f1f3valiter.Attachment.Status != nil {
-						f1f3valf0.Status = f1f3valiter.Attachment.Status
+					if f1f3valiter.Attachment.Status != "" {
+						f1f3valf0.Status = aws.String(string(f1f3valiter.Attachment.Status))
 					}
 					if f1f3valiter.Attachment.StatusMessage != nil {
 						f1f3valf0.StatusMessage = f1f3valiter.Attachment.StatusMessage
@@ -218,8 +215,8 @@ func (rm *resourceManager) sdkFind(
 					f1f3valf1 := map[string]*svcapitypes.PerObjectStatus{}
 					for f1f3valf1key, f1f3valf1valiter := range f1f3valiter.Config {
 						f1f3valf1val := &svcapitypes.PerObjectStatus{}
-						if f1f3valf1valiter.SyncStatus != nil {
-							f1f3valf1val.SyncStatus = f1f3valf1valiter.SyncStatus
+						if f1f3valf1valiter.SyncStatus != "" {
+							f1f3valf1val.SyncStatus = aws.String(string(f1f3valf1valiter.SyncStatus))
 						}
 						if f1f3valf1valiter.UpdateToken != nil {
 							f1f3valf1val.UpdateToken = f1f3valf1valiter.UpdateToken
@@ -285,10 +282,10 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.DescribeFirewallInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetFirewallArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.FirewallArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.FirewallName != nil {
-		res.SetFirewallName(*r.ko.Spec.FirewallName)
+		res.FirewallName = r.ko.Spec.FirewallName
 	}
 
 	return res, nil
@@ -313,7 +310,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateFirewallOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateFirewallWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateFirewall(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateFirewall", err)
 	if err != nil {
 		return nil, err
@@ -324,9 +321,7 @@ func (rm *resourceManager) sdkCreate(
 
 	if resp.Firewall != nil {
 		f0 := &svcapitypes.Firewall_SDK{}
-		if resp.Firewall.DeleteProtection != nil {
-			f0.DeleteProtection = resp.Firewall.DeleteProtection
-		}
+		f0.DeleteProtection = &resp.Firewall.DeleteProtection
 		if resp.Firewall.Description != nil {
 			f0.Description = resp.Firewall.Description
 		}
@@ -335,8 +330,8 @@ func (rm *resourceManager) sdkCreate(
 			if resp.Firewall.EncryptionConfiguration.KeyId != nil {
 				f0f2.KeyID = resp.Firewall.EncryptionConfiguration.KeyId
 			}
-			if resp.Firewall.EncryptionConfiguration.Type != nil {
-				f0f2.Type = resp.Firewall.EncryptionConfiguration.Type
+			if resp.Firewall.EncryptionConfiguration.Type != "" {
+				f0f2.Type = aws.String(string(resp.Firewall.EncryptionConfiguration.Type))
 			}
 			f0.EncryptionConfiguration = f0f2
 		}
@@ -352,18 +347,14 @@ func (rm *resourceManager) sdkCreate(
 		if resp.Firewall.FirewallPolicyArn != nil {
 			f0.FirewallPolicyARN = resp.Firewall.FirewallPolicyArn
 		}
-		if resp.Firewall.FirewallPolicyChangeProtection != nil {
-			f0.FirewallPolicyChangeProtection = resp.Firewall.FirewallPolicyChangeProtection
-		}
-		if resp.Firewall.SubnetChangeProtection != nil {
-			f0.SubnetChangeProtection = resp.Firewall.SubnetChangeProtection
-		}
+		f0.FirewallPolicyChangeProtection = &resp.Firewall.FirewallPolicyChangeProtection
+		f0.SubnetChangeProtection = &resp.Firewall.SubnetChangeProtection
 		if resp.Firewall.SubnetMappings != nil {
 			f0f9 := []*svcapitypes.SubnetMapping{}
 			for _, f0f9iter := range resp.Firewall.SubnetMappings {
 				f0f9elem := &svcapitypes.SubnetMapping{}
-				if f0f9iter.IPAddressType != nil {
-					f0f9elem.IPAddressType = f0f9iter.IPAddressType
+				if f0f9iter.IPAddressType != "" {
+					f0f9elem.IPAddressType = aws.String(string(f0f9iter.IPAddressType))
 				}
 				if f0f9iter.SubnetId != nil {
 					f0f9elem.SubnetID = f0f9iter.SubnetId
@@ -400,31 +391,34 @@ func (rm *resourceManager) sdkCreate(
 			if resp.FirewallStatus.CapacityUsageSummary.CIDRs != nil {
 				f1f0f0 := &svcapitypes.CIDRSummary{}
 				if resp.FirewallStatus.CapacityUsageSummary.CIDRs.AvailableCIDRCount != nil {
-					f1f0f0.AvailableCIDRCount = resp.FirewallStatus.CapacityUsageSummary.CIDRs.AvailableCIDRCount
+					availableCIDRCountCopy := int64(*resp.FirewallStatus.CapacityUsageSummary.CIDRs.AvailableCIDRCount)
+					f1f0f0.AvailableCIDRCount = &availableCIDRCountCopy
 				}
 				if resp.FirewallStatus.CapacityUsageSummary.CIDRs.IPSetReferences != nil {
 					f1f0f0f1 := map[string]*svcapitypes.IPSetMetadata{}
 					for f1f0f0f1key, f1f0f0f1valiter := range resp.FirewallStatus.CapacityUsageSummary.CIDRs.IPSetReferences {
 						f1f0f0f1val := &svcapitypes.IPSetMetadata{}
 						if f1f0f0f1valiter.ResolvedCIDRCount != nil {
-							f1f0f0f1val.ResolvedCIDRCount = f1f0f0f1valiter.ResolvedCIDRCount
+							resolvedCIDRCountCopy := int64(*f1f0f0f1valiter.ResolvedCIDRCount)
+							f1f0f0f1val.ResolvedCIDRCount = &resolvedCIDRCountCopy
 						}
 						f1f0f0f1[f1f0f0f1key] = f1f0f0f1val
 					}
 					f1f0f0.IPSetReferences = f1f0f0f1
 				}
 				if resp.FirewallStatus.CapacityUsageSummary.CIDRs.UtilizedCIDRCount != nil {
-					f1f0f0.UtilizedCIDRCount = resp.FirewallStatus.CapacityUsageSummary.CIDRs.UtilizedCIDRCount
+					utilizedCIDRCountCopy := int64(*resp.FirewallStatus.CapacityUsageSummary.CIDRs.UtilizedCIDRCount)
+					f1f0f0.UtilizedCIDRCount = &utilizedCIDRCountCopy
 				}
 				f1f0.CIDRs = f1f0f0
 			}
 			f1.CapacityUsageSummary = f1f0
 		}
-		if resp.FirewallStatus.ConfigurationSyncStateSummary != nil {
-			f1.ConfigurationSyncStateSummary = resp.FirewallStatus.ConfigurationSyncStateSummary
+		if resp.FirewallStatus.ConfigurationSyncStateSummary != "" {
+			f1.ConfigurationSyncStateSummary = aws.String(string(resp.FirewallStatus.ConfigurationSyncStateSummary))
 		}
-		if resp.FirewallStatus.Status != nil {
-			f1.Status = resp.FirewallStatus.Status
+		if resp.FirewallStatus.Status != "" {
+			f1.Status = aws.String(string(resp.FirewallStatus.Status))
 		}
 		if resp.FirewallStatus.SyncStates != nil {
 			f1f3 := map[string]*svcapitypes.SyncState{}
@@ -435,8 +429,8 @@ func (rm *resourceManager) sdkCreate(
 					if f1f3valiter.Attachment.EndpointId != nil {
 						f1f3valf0.EndpointID = f1f3valiter.Attachment.EndpointId
 					}
-					if f1f3valiter.Attachment.Status != nil {
-						f1f3valf0.Status = f1f3valiter.Attachment.Status
+					if f1f3valiter.Attachment.Status != "" {
+						f1f3valf0.Status = aws.String(string(f1f3valiter.Attachment.Status))
 					}
 					if f1f3valiter.Attachment.StatusMessage != nil {
 						f1f3valf0.StatusMessage = f1f3valiter.Attachment.StatusMessage
@@ -450,8 +444,8 @@ func (rm *resourceManager) sdkCreate(
 					f1f3valf1 := map[string]*svcapitypes.PerObjectStatus{}
 					for f1f3valf1key, f1f3valf1valiter := range f1f3valiter.Config {
 						f1f3valf1val := &svcapitypes.PerObjectStatus{}
-						if f1f3valf1valiter.SyncStatus != nil {
-							f1f3valf1val.SyncStatus = f1f3valf1valiter.SyncStatus
+						if f1f3valf1valiter.SyncStatus != "" {
+							f1f3valf1val.SyncStatus = aws.String(string(f1f3valf1valiter.SyncStatus))
 						}
 						if f1f3valf1valiter.UpdateToken != nil {
 							f1f3valf1val.UpdateToken = f1f3valf1valiter.UpdateToken
@@ -485,63 +479,63 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateFirewallInput{}
 
 	if r.ko.Spec.DeleteProtection != nil {
-		res.SetDeleteProtection(*r.ko.Spec.DeleteProtection)
+		res.DeleteProtection = *r.ko.Spec.DeleteProtection
 	}
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.EncryptionConfiguration != nil {
-		f2 := &svcsdk.EncryptionConfiguration{}
+		f2 := &svcsdktypes.EncryptionConfiguration{}
 		if r.ko.Spec.EncryptionConfiguration.KeyID != nil {
-			f2.SetKeyId(*r.ko.Spec.EncryptionConfiguration.KeyID)
+			f2.KeyId = r.ko.Spec.EncryptionConfiguration.KeyID
 		}
 		if r.ko.Spec.EncryptionConfiguration.Type != nil {
-			f2.SetType(*r.ko.Spec.EncryptionConfiguration.Type)
+			f2.Type = svcsdktypes.EncryptionType(*r.ko.Spec.EncryptionConfiguration.Type)
 		}
-		res.SetEncryptionConfiguration(f2)
+		res.EncryptionConfiguration = f2
 	}
 	if r.ko.Spec.FirewallName != nil {
-		res.SetFirewallName(*r.ko.Spec.FirewallName)
+		res.FirewallName = r.ko.Spec.FirewallName
 	}
 	if r.ko.Spec.FirewallPolicyARN != nil {
-		res.SetFirewallPolicyArn(*r.ko.Spec.FirewallPolicyARN)
+		res.FirewallPolicyArn = r.ko.Spec.FirewallPolicyARN
 	}
 	if r.ko.Spec.FirewallPolicyChangeProtection != nil {
-		res.SetFirewallPolicyChangeProtection(*r.ko.Spec.FirewallPolicyChangeProtection)
+		res.FirewallPolicyChangeProtection = *r.ko.Spec.FirewallPolicyChangeProtection
 	}
 	if r.ko.Spec.SubnetChangeProtection != nil {
-		res.SetSubnetChangeProtection(*r.ko.Spec.SubnetChangeProtection)
+		res.SubnetChangeProtection = *r.ko.Spec.SubnetChangeProtection
 	}
 	if r.ko.Spec.SubnetMappings != nil {
-		f7 := []*svcsdk.SubnetMapping{}
+		f7 := []svcsdktypes.SubnetMapping{}
 		for _, f7iter := range r.ko.Spec.SubnetMappings {
-			f7elem := &svcsdk.SubnetMapping{}
+			f7elem := &svcsdktypes.SubnetMapping{}
 			if f7iter.IPAddressType != nil {
-				f7elem.SetIPAddressType(*f7iter.IPAddressType)
+				f7elem.IPAddressType = svcsdktypes.IPAddressType(*f7iter.IPAddressType)
 			}
 			if f7iter.SubnetID != nil {
-				f7elem.SetSubnetId(*f7iter.SubnetID)
+				f7elem.SubnetId = f7iter.SubnetID
 			}
-			f7 = append(f7, f7elem)
+			f7 = append(f7, *f7elem)
 		}
-		res.SetSubnetMappings(f7)
+		res.SubnetMappings = f7
 	}
 	if r.ko.Spec.Tags != nil {
-		f8 := []*svcsdk.Tag{}
+		f8 := []svcsdktypes.Tag{}
 		for _, f8iter := range r.ko.Spec.Tags {
-			f8elem := &svcsdk.Tag{}
+			f8elem := &svcsdktypes.Tag{}
 			if f8iter.Key != nil {
-				f8elem.SetKey(*f8iter.Key)
+				f8elem.Key = f8iter.Key
 			}
 			if f8iter.Value != nil {
-				f8elem.SetValue(*f8iter.Value)
+				f8elem.Value = f8iter.Value
 			}
-			f8 = append(f8, f8elem)
+			f8 = append(f8, *f8elem)
 		}
-		res.SetTags(f8)
+		res.Tags = f8
 	}
 	if r.ko.Spec.VPCID != nil {
-		res.SetVpcId(*r.ko.Spec.VPCID)
+		res.VpcId = r.ko.Spec.VPCID
 	}
 
 	return res, nil
@@ -577,7 +571,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteFirewallOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteFirewallWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteFirewall(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteFirewall", err)
 	if err == nil {
 		if observed, err := rm.sdkFind(ctx, r); err != ackerr.NotFound {
@@ -599,10 +593,10 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteFirewallInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetFirewallArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.FirewallArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.FirewallName != nil {
-		res.SetFirewallName(*r.ko.Spec.FirewallName)
+		res.FirewallName = r.ko.Spec.FirewallName
 	}
 
 	return res, nil
@@ -710,11 +704,12 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "InvalidRequestException":
 		return true
 	default:
@@ -726,31 +721,25 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 // with each the field set by the resource's corresponding spec field.
 func (rm *resourceManager) newLoggingConfiguration(
 	r *resource,
-) *svcsdk.LoggingConfiguration {
-	res := &svcsdk.LoggingConfiguration{}
+) *svcsdktypes.LoggingConfiguration {
+	res := &svcsdktypes.LoggingConfiguration{}
 
 	if r.ko.Spec.LoggingConfiguration.LogDestinationConfigs != nil {
-		resf0 := []*svcsdk.LogDestinationConfig{}
+		resf0 := []svcsdktypes.LogDestinationConfig{}
 		for _, resf0iter := range r.ko.Spec.LoggingConfiguration.LogDestinationConfigs {
-			resf0elem := &svcsdk.LogDestinationConfig{}
+			resf0elem := &svcsdktypes.LogDestinationConfig{}
 			if resf0iter.LogDestination != nil {
-				resf0elemf0 := map[string]*string{}
-				for resf0elemf0key, resf0elemf0valiter := range resf0iter.LogDestination {
-					var resf0elemf0val string
-					resf0elemf0val = *resf0elemf0valiter
-					resf0elemf0[resf0elemf0key] = &resf0elemf0val
-				}
-				resf0elem.SetLogDestination(resf0elemf0)
+				resf0elem.LogDestination = aws.ToStringMap(resf0iter.LogDestination)
 			}
 			if resf0iter.LogDestinationType != nil {
-				resf0elem.SetLogDestinationType(*resf0iter.LogDestinationType)
+				resf0elem.LogDestinationType = svcsdktypes.LogDestinationType(*resf0iter.LogDestinationType)
 			}
 			if resf0iter.LogType != nil {
-				resf0elem.SetLogType(*resf0iter.LogType)
+				resf0elem.LogType = svcsdktypes.LogType(*resf0iter.LogType)
 			}
-			resf0 = append(resf0, resf0elem)
+			resf0 = append(resf0, *resf0elem)
 		}
-		res.SetLogDestinationConfigs(resf0)
+		res.LogDestinationConfigs = resf0
 	}
 
 	return res
@@ -769,19 +758,13 @@ func (rm *resourceManager) setResourceLoggingConfiguration(
 		for _, resf0iter := range resp.LoggingConfiguration.LogDestinationConfigs {
 			resf0elem := &svcapitypes.LogDestinationConfig{}
 			if resf0iter.LogDestination != nil {
-				resf0elemf0 := map[string]*string{}
-				for resf0elemf0key, resf0elemf0valiter := range resf0iter.LogDestination {
-					var resf0elemf0val string
-					resf0elemf0val = *resf0elemf0valiter
-					resf0elemf0[resf0elemf0key] = &resf0elemf0val
-				}
-				resf0elem.LogDestination = resf0elemf0
+				resf0elem.LogDestination = aws.StringMap(resf0iter.LogDestination)
 			}
-			if resf0iter.LogDestinationType != nil {
-				resf0elem.LogDestinationType = resf0iter.LogDestinationType
+			if resf0iter.LogDestinationType != "" {
+				resf0elem.LogDestinationType = aws.String(string(resf0iter.LogDestinationType))
 			}
-			if resf0iter.LogType != nil {
-				resf0elem.LogType = resf0iter.LogType
+			if resf0iter.LogType != "" {
+				resf0elem.LogType = aws.String(string(resf0iter.LogType))
 			}
 			resf0 = append(resf0, resf0elem)
 		}

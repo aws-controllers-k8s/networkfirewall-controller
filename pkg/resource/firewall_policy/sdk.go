@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -28,8 +29,10 @@ import (
 	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
 	ackrequeue "github.com/aws-controllers-k8s/runtime/pkg/requeue"
 	ackrtlog "github.com/aws-controllers-k8s/runtime/pkg/runtime/log"
-	"github.com/aws/aws-sdk-go/aws"
-	svcsdk "github.com/aws/aws-sdk-go/service/networkfirewall"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	svcsdk "github.com/aws/aws-sdk-go-v2/service/networkfirewall"
+	svcsdktypes "github.com/aws/aws-sdk-go-v2/service/networkfirewall/types"
+	smithy "github.com/aws/smithy-go"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -40,8 +43,7 @@ import (
 var (
 	_ = &metav1.Time{}
 	_ = strings.ToLower("")
-	_ = &aws.JSONValue{}
-	_ = &svcsdk.NetworkFirewall{}
+	_ = &svcsdk.Client{}
 	_ = &svcapitypes.FirewallPolicy{}
 	_ = ackv1alpha1.AWSAccountID("")
 	_ = &ackerr.NotFound
@@ -49,6 +51,7 @@ var (
 	_ = &reflect.Value{}
 	_ = fmt.Sprintf("")
 	_ = &ackrequeue.NoRequeue{}
+	_ = &aws.Config{}
 )
 
 // sdkFind returns SDK-specific information about a supplied resource
@@ -74,13 +77,11 @@ func (rm *resourceManager) sdkFind(
 	}
 
 	var resp *svcsdk.DescribeFirewallPolicyOutput
-	resp, err = rm.sdkapi.DescribeFirewallPolicyWithContext(ctx, input)
+	resp, err = rm.sdkapi.DescribeFirewallPolicy(ctx, input)
 	rm.metrics.RecordAPICall("READ_ONE", "DescribeFirewallPolicy", err)
 	if err != nil {
-		if reqErr, ok := ackerr.AWSRequestFailure(err); ok && reqErr.StatusCode() == 404 {
-			return nil, ackerr.NotFound
-		}
-		if awsErr, ok := ackerr.AWSError(err); ok && awsErr.Code() == "ResourceNotFoundException" {
+		var awsErr smithy.APIError
+		if errors.As(err, &awsErr) && awsErr.ErrorCode() == "ResourceNotFoundException" {
 			return nil, ackerr.NotFound
 		}
 		return nil, err
@@ -99,13 +100,7 @@ func (rm *resourceManager) sdkFind(
 				for f0f0f0key, f0f0f0valiter := range resp.FirewallPolicy.PolicyVariables.RuleVariables {
 					f0f0f0val := &svcapitypes.IPSet{}
 					if f0f0f0valiter.Definition != nil {
-						f0f0f0valf0 := []*string{}
-						for _, f0f0f0valf0iter := range f0f0f0valiter.Definition {
-							var f0f0f0valf0elem string
-							f0f0f0valf0elem = *f0f0f0valf0iter
-							f0f0f0valf0 = append(f0f0f0valf0, &f0f0f0valf0elem)
-						}
-						f0f0f0val.Definition = f0f0f0valf0
+						f0f0f0val.Definition = aws.StringSlice(f0f0f0valiter.Definition)
 					}
 					f0f0f0[f0f0f0key] = f0f0f0val
 				}
@@ -114,21 +109,15 @@ func (rm *resourceManager) sdkFind(
 			f0.PolicyVariables = f0f0
 		}
 		if resp.FirewallPolicy.StatefulDefaultActions != nil {
-			f0f1 := []*string{}
-			for _, f0f1iter := range resp.FirewallPolicy.StatefulDefaultActions {
-				var f0f1elem string
-				f0f1elem = *f0f1iter
-				f0f1 = append(f0f1, &f0f1elem)
-			}
-			f0.StatefulDefaultActions = f0f1
+			f0.StatefulDefaultActions = aws.StringSlice(resp.FirewallPolicy.StatefulDefaultActions)
 		}
 		if resp.FirewallPolicy.StatefulEngineOptions != nil {
 			f0f2 := &svcapitypes.StatefulEngineOptions{}
-			if resp.FirewallPolicy.StatefulEngineOptions.RuleOrder != nil {
-				f0f2.RuleOrder = resp.FirewallPolicy.StatefulEngineOptions.RuleOrder
+			if resp.FirewallPolicy.StatefulEngineOptions.RuleOrder != "" {
+				f0f2.RuleOrder = aws.String(string(resp.FirewallPolicy.StatefulEngineOptions.RuleOrder))
 			}
-			if resp.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy != nil {
-				f0f2.StreamExceptionPolicy = resp.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy
+			if resp.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy != "" {
+				f0f2.StreamExceptionPolicy = aws.String(string(resp.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy))
 			}
 			f0.StatefulEngineOptions = f0f2
 		}
@@ -138,13 +127,14 @@ func (rm *resourceManager) sdkFind(
 				f0f3elem := &svcapitypes.StatefulRuleGroupReference{}
 				if f0f3iter.Override != nil {
 					f0f3elemf0 := &svcapitypes.StatefulRuleGroupOverride{}
-					if f0f3iter.Override.Action != nil {
-						f0f3elemf0.Action = f0f3iter.Override.Action
+					if f0f3iter.Override.Action != "" {
+						f0f3elemf0.Action = aws.String(string(f0f3iter.Override.Action))
 					}
 					f0f3elem.Override = f0f3elemf0
 				}
 				if f0f3iter.Priority != nil {
-					f0f3elem.Priority = f0f3iter.Priority
+					priorityCopy := int64(*f0f3iter.Priority)
+					f0f3elem.Priority = &priorityCopy
 				}
 				if f0f3iter.ResourceArn != nil {
 					f0f3elem.ResourceARN = f0f3iter.ResourceArn
@@ -184,29 +174,18 @@ func (rm *resourceManager) sdkFind(
 			f0.StatelessCustomActions = f0f4
 		}
 		if resp.FirewallPolicy.StatelessDefaultActions != nil {
-			f0f5 := []*string{}
-			for _, f0f5iter := range resp.FirewallPolicy.StatelessDefaultActions {
-				var f0f5elem string
-				f0f5elem = *f0f5iter
-				f0f5 = append(f0f5, &f0f5elem)
-			}
-			f0.StatelessDefaultActions = f0f5
+			f0.StatelessDefaultActions = aws.StringSlice(resp.FirewallPolicy.StatelessDefaultActions)
 		}
 		if resp.FirewallPolicy.StatelessFragmentDefaultActions != nil {
-			f0f6 := []*string{}
-			for _, f0f6iter := range resp.FirewallPolicy.StatelessFragmentDefaultActions {
-				var f0f6elem string
-				f0f6elem = *f0f6iter
-				f0f6 = append(f0f6, &f0f6elem)
-			}
-			f0.StatelessFragmentDefaultActions = f0f6
+			f0.StatelessFragmentDefaultActions = aws.StringSlice(resp.FirewallPolicy.StatelessFragmentDefaultActions)
 		}
 		if resp.FirewallPolicy.StatelessRuleGroupReferences != nil {
 			f0f7 := []*svcapitypes.StatelessRuleGroupReference{}
 			for _, f0f7iter := range resp.FirewallPolicy.StatelessRuleGroupReferences {
 				f0f7elem := &svcapitypes.StatelessRuleGroupReference{}
 				if f0f7iter.Priority != nil {
-					f0f7elem.Priority = f0f7iter.Priority
+					priorityCopy := int64(*f0f7iter.Priority)
+					f0f7elem.Priority = &priorityCopy
 				}
 				if f0f7iter.ResourceArn != nil {
 					f0f7elem.ResourceARN = f0f7iter.ResourceArn
@@ -225,10 +204,12 @@ func (rm *resourceManager) sdkFind(
 	if resp.FirewallPolicyResponse != nil {
 		f1 := &svcapitypes.FirewallPolicyResponse{}
 		if resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity != nil {
-			f1.ConsumedStatefulRuleCapacity = resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity
+			consumedStatefulRuleCapacityCopy := int64(*resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity)
+			f1.ConsumedStatefulRuleCapacity = &consumedStatefulRuleCapacityCopy
 		}
 		if resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity != nil {
-			f1.ConsumedStatelessRuleCapacity = resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity
+			consumedStatelessRuleCapacityCopy := int64(*resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity)
+			f1.ConsumedStatelessRuleCapacity = &consumedStatelessRuleCapacityCopy
 		}
 		if resp.FirewallPolicyResponse.Description != nil {
 			f1.Description = resp.FirewallPolicyResponse.Description
@@ -238,8 +219,8 @@ func (rm *resourceManager) sdkFind(
 			if resp.FirewallPolicyResponse.EncryptionConfiguration.KeyId != nil {
 				f1f3.KeyID = resp.FirewallPolicyResponse.EncryptionConfiguration.KeyId
 			}
-			if resp.FirewallPolicyResponse.EncryptionConfiguration.Type != nil {
-				f1f3.Type = resp.FirewallPolicyResponse.EncryptionConfiguration.Type
+			if resp.FirewallPolicyResponse.EncryptionConfiguration.Type != "" {
+				f1f3.Type = aws.String(string(resp.FirewallPolicyResponse.EncryptionConfiguration.Type))
 			}
 			f1.EncryptionConfiguration = f1f3
 		}
@@ -252,14 +233,15 @@ func (rm *resourceManager) sdkFind(
 		if resp.FirewallPolicyResponse.FirewallPolicyName != nil {
 			f1.FirewallPolicyName = resp.FirewallPolicyResponse.FirewallPolicyName
 		}
-		if resp.FirewallPolicyResponse.FirewallPolicyStatus != nil {
-			f1.FirewallPolicyStatus = resp.FirewallPolicyResponse.FirewallPolicyStatus
+		if resp.FirewallPolicyResponse.FirewallPolicyStatus != "" {
+			f1.FirewallPolicyStatus = aws.String(string(resp.FirewallPolicyResponse.FirewallPolicyStatus))
 		}
 		if resp.FirewallPolicyResponse.LastModifiedTime != nil {
 			f1.LastModifiedTime = &metav1.Time{*resp.FirewallPolicyResponse.LastModifiedTime}
 		}
 		if resp.FirewallPolicyResponse.NumberOfAssociations != nil {
-			f1.NumberOfAssociations = resp.FirewallPolicyResponse.NumberOfAssociations
+			numberOfAssociationsCopy := int64(*resp.FirewallPolicyResponse.NumberOfAssociations)
+			f1.NumberOfAssociations = &numberOfAssociationsCopy
 		}
 		if resp.FirewallPolicyResponse.Tags != nil {
 			f1f10 := []*svcapitypes.Tag{}
@@ -306,10 +288,10 @@ func (rm *resourceManager) newDescribeRequestPayload(
 	res := &svcsdk.DescribeFirewallPolicyInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetFirewallPolicyArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.FirewallPolicyArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.FirewallPolicyName != nil {
-		res.SetFirewallPolicyName(*r.ko.Spec.FirewallPolicyName)
+		res.FirewallPolicyName = r.ko.Spec.FirewallPolicyName
 	}
 
 	return res, nil
@@ -334,7 +316,7 @@ func (rm *resourceManager) sdkCreate(
 
 	var resp *svcsdk.CreateFirewallPolicyOutput
 	_ = resp
-	resp, err = rm.sdkapi.CreateFirewallPolicyWithContext(ctx, input)
+	resp, err = rm.sdkapi.CreateFirewallPolicy(ctx, input)
 	rm.metrics.RecordAPICall("CREATE", "CreateFirewallPolicy", err)
 	if err != nil {
 		return nil, err
@@ -346,10 +328,12 @@ func (rm *resourceManager) sdkCreate(
 	if resp.FirewallPolicyResponse != nil {
 		f0 := &svcapitypes.FirewallPolicyResponse{}
 		if resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity != nil {
-			f0.ConsumedStatefulRuleCapacity = resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity
+			consumedStatefulRuleCapacityCopy := int64(*resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity)
+			f0.ConsumedStatefulRuleCapacity = &consumedStatefulRuleCapacityCopy
 		}
 		if resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity != nil {
-			f0.ConsumedStatelessRuleCapacity = resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity
+			consumedStatelessRuleCapacityCopy := int64(*resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity)
+			f0.ConsumedStatelessRuleCapacity = &consumedStatelessRuleCapacityCopy
 		}
 		if resp.FirewallPolicyResponse.Description != nil {
 			f0.Description = resp.FirewallPolicyResponse.Description
@@ -359,8 +343,8 @@ func (rm *resourceManager) sdkCreate(
 			if resp.FirewallPolicyResponse.EncryptionConfiguration.KeyId != nil {
 				f0f3.KeyID = resp.FirewallPolicyResponse.EncryptionConfiguration.KeyId
 			}
-			if resp.FirewallPolicyResponse.EncryptionConfiguration.Type != nil {
-				f0f3.Type = resp.FirewallPolicyResponse.EncryptionConfiguration.Type
+			if resp.FirewallPolicyResponse.EncryptionConfiguration.Type != "" {
+				f0f3.Type = aws.String(string(resp.FirewallPolicyResponse.EncryptionConfiguration.Type))
 			}
 			f0.EncryptionConfiguration = f0f3
 		}
@@ -373,14 +357,15 @@ func (rm *resourceManager) sdkCreate(
 		if resp.FirewallPolicyResponse.FirewallPolicyName != nil {
 			f0.FirewallPolicyName = resp.FirewallPolicyResponse.FirewallPolicyName
 		}
-		if resp.FirewallPolicyResponse.FirewallPolicyStatus != nil {
-			f0.FirewallPolicyStatus = resp.FirewallPolicyResponse.FirewallPolicyStatus
+		if resp.FirewallPolicyResponse.FirewallPolicyStatus != "" {
+			f0.FirewallPolicyStatus = aws.String(string(resp.FirewallPolicyResponse.FirewallPolicyStatus))
 		}
 		if resp.FirewallPolicyResponse.LastModifiedTime != nil {
 			f0.LastModifiedTime = &metav1.Time{*resp.FirewallPolicyResponse.LastModifiedTime}
 		}
 		if resp.FirewallPolicyResponse.NumberOfAssociations != nil {
-			f0.NumberOfAssociations = resp.FirewallPolicyResponse.NumberOfAssociations
+			numberOfAssociationsCopy := int64(*resp.FirewallPolicyResponse.NumberOfAssociations)
+			f0.NumberOfAssociations = &numberOfAssociationsCopy
 		}
 		if resp.FirewallPolicyResponse.Tags != nil {
 			f0f10 := []*svcapitypes.Tag{}
@@ -419,164 +404,150 @@ func (rm *resourceManager) newCreateRequestPayload(
 	res := &svcsdk.CreateFirewallPolicyInput{}
 
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.EncryptionConfiguration != nil {
-		f1 := &svcsdk.EncryptionConfiguration{}
+		f1 := &svcsdktypes.EncryptionConfiguration{}
 		if r.ko.Spec.EncryptionConfiguration.KeyID != nil {
-			f1.SetKeyId(*r.ko.Spec.EncryptionConfiguration.KeyID)
+			f1.KeyId = r.ko.Spec.EncryptionConfiguration.KeyID
 		}
 		if r.ko.Spec.EncryptionConfiguration.Type != nil {
-			f1.SetType(*r.ko.Spec.EncryptionConfiguration.Type)
+			f1.Type = svcsdktypes.EncryptionType(*r.ko.Spec.EncryptionConfiguration.Type)
 		}
-		res.SetEncryptionConfiguration(f1)
+		res.EncryptionConfiguration = f1
 	}
 	if r.ko.Spec.FirewallPolicy != nil {
-		f2 := &svcsdk.FirewallPolicy{}
+		f2 := &svcsdktypes.FirewallPolicy{}
 		if r.ko.Spec.FirewallPolicy.PolicyVariables != nil {
-			f2f0 := &svcsdk.PolicyVariables{}
+			f2f0 := &svcsdktypes.PolicyVariables{}
 			if r.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables != nil {
-				f2f0f0 := map[string]*svcsdk.IPSet{}
+				f2f0f0 := map[string]svcsdktypes.IPSet{}
 				for f2f0f0key, f2f0f0valiter := range r.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables {
-					f2f0f0val := &svcsdk.IPSet{}
+					f2f0f0val := &svcsdktypes.IPSet{}
 					if f2f0f0valiter.Definition != nil {
-						f2f0f0valf0 := []*string{}
-						for _, f2f0f0valf0iter := range f2f0f0valiter.Definition {
-							var f2f0f0valf0elem string
-							f2f0f0valf0elem = *f2f0f0valf0iter
-							f2f0f0valf0 = append(f2f0f0valf0, &f2f0f0valf0elem)
-						}
-						f2f0f0val.SetDefinition(f2f0f0valf0)
+						f2f0f0val.Definition = aws.ToStringSlice(f2f0f0valiter.Definition)
 					}
-					f2f0f0[f2f0f0key] = f2f0f0val
+					f2f0f0[f2f0f0key] = *f2f0f0val
 				}
-				f2f0.SetRuleVariables(f2f0f0)
+				f2f0.RuleVariables = f2f0f0
 			}
-			f2.SetPolicyVariables(f2f0)
+			f2.PolicyVariables = f2f0
 		}
 		if r.ko.Spec.FirewallPolicy.StatefulDefaultActions != nil {
-			f2f1 := []*string{}
-			for _, f2f1iter := range r.ko.Spec.FirewallPolicy.StatefulDefaultActions {
-				var f2f1elem string
-				f2f1elem = *f2f1iter
-				f2f1 = append(f2f1, &f2f1elem)
-			}
-			f2.SetStatefulDefaultActions(f2f1)
+			f2.StatefulDefaultActions = aws.ToStringSlice(r.ko.Spec.FirewallPolicy.StatefulDefaultActions)
 		}
 		if r.ko.Spec.FirewallPolicy.StatefulEngineOptions != nil {
-			f2f2 := &svcsdk.StatefulEngineOptions{}
+			f2f2 := &svcsdktypes.StatefulEngineOptions{}
 			if r.ko.Spec.FirewallPolicy.StatefulEngineOptions.RuleOrder != nil {
-				f2f2.SetRuleOrder(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.RuleOrder)
+				f2f2.RuleOrder = svcsdktypes.RuleOrder(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.RuleOrder)
 			}
 			if r.ko.Spec.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy != nil {
-				f2f2.SetStreamExceptionPolicy(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy)
+				f2f2.StreamExceptionPolicy = svcsdktypes.StreamExceptionPolicy(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy)
 			}
-			f2.SetStatefulEngineOptions(f2f2)
+			f2.StatefulEngineOptions = f2f2
 		}
 		if r.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences != nil {
-			f2f3 := []*svcsdk.StatefulRuleGroupReference{}
+			f2f3 := []svcsdktypes.StatefulRuleGroupReference{}
 			for _, f2f3iter := range r.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences {
-				f2f3elem := &svcsdk.StatefulRuleGroupReference{}
+				f2f3elem := &svcsdktypes.StatefulRuleGroupReference{}
 				if f2f3iter.Override != nil {
-					f2f3elemf0 := &svcsdk.StatefulRuleGroupOverride{}
+					f2f3elemf0 := &svcsdktypes.StatefulRuleGroupOverride{}
 					if f2f3iter.Override.Action != nil {
-						f2f3elemf0.SetAction(*f2f3iter.Override.Action)
+						f2f3elemf0.Action = svcsdktypes.OverrideAction(*f2f3iter.Override.Action)
 					}
-					f2f3elem.SetOverride(f2f3elemf0)
+					f2f3elem.Override = f2f3elemf0
 				}
 				if f2f3iter.Priority != nil {
-					f2f3elem.SetPriority(*f2f3iter.Priority)
+					priorityCopy0 := *f2f3iter.Priority
+					if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+						return nil, fmt.Errorf("error: field Priority is of type int32")
+					}
+					priorityCopy := int32(priorityCopy0)
+					f2f3elem.Priority = &priorityCopy
 				}
 				if f2f3iter.ResourceARN != nil {
-					f2f3elem.SetResourceArn(*f2f3iter.ResourceARN)
+					f2f3elem.ResourceArn = f2f3iter.ResourceARN
 				}
-				f2f3 = append(f2f3, f2f3elem)
+				f2f3 = append(f2f3, *f2f3elem)
 			}
-			f2.SetStatefulRuleGroupReferences(f2f3)
+			f2.StatefulRuleGroupReferences = f2f3
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessCustomActions != nil {
-			f2f4 := []*svcsdk.CustomAction{}
+			f2f4 := []svcsdktypes.CustomAction{}
 			for _, f2f4iter := range r.ko.Spec.FirewallPolicy.StatelessCustomActions {
-				f2f4elem := &svcsdk.CustomAction{}
+				f2f4elem := &svcsdktypes.CustomAction{}
 				if f2f4iter.ActionDefinition != nil {
-					f2f4elemf0 := &svcsdk.ActionDefinition{}
+					f2f4elemf0 := &svcsdktypes.ActionDefinition{}
 					if f2f4iter.ActionDefinition.PublishMetricAction != nil {
-						f2f4elemf0f0 := &svcsdk.PublishMetricAction{}
+						f2f4elemf0f0 := &svcsdktypes.PublishMetricAction{}
 						if f2f4iter.ActionDefinition.PublishMetricAction.Dimensions != nil {
-							f2f4elemf0f0f0 := []*svcsdk.Dimension{}
+							f2f4elemf0f0f0 := []svcsdktypes.Dimension{}
 							for _, f2f4elemf0f0f0iter := range f2f4iter.ActionDefinition.PublishMetricAction.Dimensions {
-								f2f4elemf0f0f0elem := &svcsdk.Dimension{}
+								f2f4elemf0f0f0elem := &svcsdktypes.Dimension{}
 								if f2f4elemf0f0f0iter.Value != nil {
-									f2f4elemf0f0f0elem.SetValue(*f2f4elemf0f0f0iter.Value)
+									f2f4elemf0f0f0elem.Value = f2f4elemf0f0f0iter.Value
 								}
-								f2f4elemf0f0f0 = append(f2f4elemf0f0f0, f2f4elemf0f0f0elem)
+								f2f4elemf0f0f0 = append(f2f4elemf0f0f0, *f2f4elemf0f0f0elem)
 							}
-							f2f4elemf0f0.SetDimensions(f2f4elemf0f0f0)
+							f2f4elemf0f0.Dimensions = f2f4elemf0f0f0
 						}
-						f2f4elemf0.SetPublishMetricAction(f2f4elemf0f0)
+						f2f4elemf0.PublishMetricAction = f2f4elemf0f0
 					}
-					f2f4elem.SetActionDefinition(f2f4elemf0)
+					f2f4elem.ActionDefinition = f2f4elemf0
 				}
 				if f2f4iter.ActionName != nil {
-					f2f4elem.SetActionName(*f2f4iter.ActionName)
+					f2f4elem.ActionName = f2f4iter.ActionName
 				}
-				f2f4 = append(f2f4, f2f4elem)
+				f2f4 = append(f2f4, *f2f4elem)
 			}
-			f2.SetStatelessCustomActions(f2f4)
+			f2.StatelessCustomActions = f2f4
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessDefaultActions != nil {
-			f2f5 := []*string{}
-			for _, f2f5iter := range r.ko.Spec.FirewallPolicy.StatelessDefaultActions {
-				var f2f5elem string
-				f2f5elem = *f2f5iter
-				f2f5 = append(f2f5, &f2f5elem)
-			}
-			f2.SetStatelessDefaultActions(f2f5)
+			f2.StatelessDefaultActions = aws.ToStringSlice(r.ko.Spec.FirewallPolicy.StatelessDefaultActions)
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessFragmentDefaultActions != nil {
-			f2f6 := []*string{}
-			for _, f2f6iter := range r.ko.Spec.FirewallPolicy.StatelessFragmentDefaultActions {
-				var f2f6elem string
-				f2f6elem = *f2f6iter
-				f2f6 = append(f2f6, &f2f6elem)
-			}
-			f2.SetStatelessFragmentDefaultActions(f2f6)
+			f2.StatelessFragmentDefaultActions = aws.ToStringSlice(r.ko.Spec.FirewallPolicy.StatelessFragmentDefaultActions)
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences != nil {
-			f2f7 := []*svcsdk.StatelessRuleGroupReference{}
+			f2f7 := []svcsdktypes.StatelessRuleGroupReference{}
 			for _, f2f7iter := range r.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences {
-				f2f7elem := &svcsdk.StatelessRuleGroupReference{}
+				f2f7elem := &svcsdktypes.StatelessRuleGroupReference{}
 				if f2f7iter.Priority != nil {
-					f2f7elem.SetPriority(*f2f7iter.Priority)
+					priorityCopy0 := *f2f7iter.Priority
+					if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+						return nil, fmt.Errorf("error: field Priority is of type int32")
+					}
+					priorityCopy := int32(priorityCopy0)
+					f2f7elem.Priority = &priorityCopy
 				}
 				if f2f7iter.ResourceARN != nil {
-					f2f7elem.SetResourceArn(*f2f7iter.ResourceARN)
+					f2f7elem.ResourceArn = f2f7iter.ResourceARN
 				}
-				f2f7 = append(f2f7, f2f7elem)
+				f2f7 = append(f2f7, *f2f7elem)
 			}
-			f2.SetStatelessRuleGroupReferences(f2f7)
+			f2.StatelessRuleGroupReferences = f2f7
 		}
 		if r.ko.Spec.FirewallPolicy.TLSInspectionConfigurationARN != nil {
-			f2.SetTLSInspectionConfigurationArn(*r.ko.Spec.FirewallPolicy.TLSInspectionConfigurationARN)
+			f2.TLSInspectionConfigurationArn = r.ko.Spec.FirewallPolicy.TLSInspectionConfigurationARN
 		}
-		res.SetFirewallPolicy(f2)
+		res.FirewallPolicy = f2
 	}
 	if r.ko.Spec.FirewallPolicyName != nil {
-		res.SetFirewallPolicyName(*r.ko.Spec.FirewallPolicyName)
+		res.FirewallPolicyName = r.ko.Spec.FirewallPolicyName
 	}
 	if r.ko.Spec.Tags != nil {
-		f4 := []*svcsdk.Tag{}
+		f4 := []svcsdktypes.Tag{}
 		for _, f4iter := range r.ko.Spec.Tags {
-			f4elem := &svcsdk.Tag{}
+			f4elem := &svcsdktypes.Tag{}
 			if f4iter.Key != nil {
-				f4elem.SetKey(*f4iter.Key)
+				f4elem.Key = f4iter.Key
 			}
 			if f4iter.Value != nil {
-				f4elem.SetValue(*f4iter.Value)
+				f4elem.Value = f4iter.Value
 			}
-			f4 = append(f4, f4elem)
+			f4 = append(f4, *f4elem)
 		}
-		res.SetTags(f4)
+		res.Tags = f4
 	}
 
 	return res, nil
@@ -602,7 +573,7 @@ func (rm *resourceManager) sdkUpdate(
 
 	var resp *svcsdk.UpdateFirewallPolicyOutput
 	_ = resp
-	resp, err = rm.sdkapi.UpdateFirewallPolicyWithContext(ctx, input)
+	resp, err = rm.sdkapi.UpdateFirewallPolicy(ctx, input)
 	rm.metrics.RecordAPICall("UPDATE", "UpdateFirewallPolicy", err)
 	if err != nil {
 		return nil, err
@@ -614,10 +585,12 @@ func (rm *resourceManager) sdkUpdate(
 	if resp.FirewallPolicyResponse != nil {
 		f0 := &svcapitypes.FirewallPolicyResponse{}
 		if resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity != nil {
-			f0.ConsumedStatefulRuleCapacity = resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity
+			consumedStatefulRuleCapacityCopy := int64(*resp.FirewallPolicyResponse.ConsumedStatefulRuleCapacity)
+			f0.ConsumedStatefulRuleCapacity = &consumedStatefulRuleCapacityCopy
 		}
 		if resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity != nil {
-			f0.ConsumedStatelessRuleCapacity = resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity
+			consumedStatelessRuleCapacityCopy := int64(*resp.FirewallPolicyResponse.ConsumedStatelessRuleCapacity)
+			f0.ConsumedStatelessRuleCapacity = &consumedStatelessRuleCapacityCopy
 		}
 		if resp.FirewallPolicyResponse.Description != nil {
 			f0.Description = resp.FirewallPolicyResponse.Description
@@ -627,8 +600,8 @@ func (rm *resourceManager) sdkUpdate(
 			if resp.FirewallPolicyResponse.EncryptionConfiguration.KeyId != nil {
 				f0f3.KeyID = resp.FirewallPolicyResponse.EncryptionConfiguration.KeyId
 			}
-			if resp.FirewallPolicyResponse.EncryptionConfiguration.Type != nil {
-				f0f3.Type = resp.FirewallPolicyResponse.EncryptionConfiguration.Type
+			if resp.FirewallPolicyResponse.EncryptionConfiguration.Type != "" {
+				f0f3.Type = aws.String(string(resp.FirewallPolicyResponse.EncryptionConfiguration.Type))
 			}
 			f0.EncryptionConfiguration = f0f3
 		}
@@ -641,14 +614,15 @@ func (rm *resourceManager) sdkUpdate(
 		if resp.FirewallPolicyResponse.FirewallPolicyName != nil {
 			f0.FirewallPolicyName = resp.FirewallPolicyResponse.FirewallPolicyName
 		}
-		if resp.FirewallPolicyResponse.FirewallPolicyStatus != nil {
-			f0.FirewallPolicyStatus = resp.FirewallPolicyResponse.FirewallPolicyStatus
+		if resp.FirewallPolicyResponse.FirewallPolicyStatus != "" {
+			f0.FirewallPolicyStatus = aws.String(string(resp.FirewallPolicyResponse.FirewallPolicyStatus))
 		}
 		if resp.FirewallPolicyResponse.LastModifiedTime != nil {
 			f0.LastModifiedTime = &metav1.Time{*resp.FirewallPolicyResponse.LastModifiedTime}
 		}
 		if resp.FirewallPolicyResponse.NumberOfAssociations != nil {
-			f0.NumberOfAssociations = resp.FirewallPolicyResponse.NumberOfAssociations
+			numberOfAssociationsCopy := int64(*resp.FirewallPolicyResponse.NumberOfAssociations)
+			f0.NumberOfAssociations = &numberOfAssociationsCopy
 		}
 		if resp.FirewallPolicyResponse.Tags != nil {
 			f0f10 := []*svcapitypes.Tag{}
@@ -688,156 +662,142 @@ func (rm *resourceManager) newUpdateRequestPayload(
 	res := &svcsdk.UpdateFirewallPolicyInput{}
 
 	if r.ko.Spec.Description != nil {
-		res.SetDescription(*r.ko.Spec.Description)
+		res.Description = r.ko.Spec.Description
 	}
 	if r.ko.Spec.EncryptionConfiguration != nil {
-		f2 := &svcsdk.EncryptionConfiguration{}
+		f2 := &svcsdktypes.EncryptionConfiguration{}
 		if r.ko.Spec.EncryptionConfiguration.KeyID != nil {
-			f2.SetKeyId(*r.ko.Spec.EncryptionConfiguration.KeyID)
+			f2.KeyId = r.ko.Spec.EncryptionConfiguration.KeyID
 		}
 		if r.ko.Spec.EncryptionConfiguration.Type != nil {
-			f2.SetType(*r.ko.Spec.EncryptionConfiguration.Type)
+			f2.Type = svcsdktypes.EncryptionType(*r.ko.Spec.EncryptionConfiguration.Type)
 		}
-		res.SetEncryptionConfiguration(f2)
+		res.EncryptionConfiguration = f2
 	}
 	if r.ko.Spec.FirewallPolicy != nil {
-		f3 := &svcsdk.FirewallPolicy{}
+		f3 := &svcsdktypes.FirewallPolicy{}
 		if r.ko.Spec.FirewallPolicy.PolicyVariables != nil {
-			f3f0 := &svcsdk.PolicyVariables{}
+			f3f0 := &svcsdktypes.PolicyVariables{}
 			if r.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables != nil {
-				f3f0f0 := map[string]*svcsdk.IPSet{}
+				f3f0f0 := map[string]svcsdktypes.IPSet{}
 				for f3f0f0key, f3f0f0valiter := range r.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables {
-					f3f0f0val := &svcsdk.IPSet{}
+					f3f0f0val := &svcsdktypes.IPSet{}
 					if f3f0f0valiter.Definition != nil {
-						f3f0f0valf0 := []*string{}
-						for _, f3f0f0valf0iter := range f3f0f0valiter.Definition {
-							var f3f0f0valf0elem string
-							f3f0f0valf0elem = *f3f0f0valf0iter
-							f3f0f0valf0 = append(f3f0f0valf0, &f3f0f0valf0elem)
-						}
-						f3f0f0val.SetDefinition(f3f0f0valf0)
+						f3f0f0val.Definition = aws.ToStringSlice(f3f0f0valiter.Definition)
 					}
-					f3f0f0[f3f0f0key] = f3f0f0val
+					f3f0f0[f3f0f0key] = *f3f0f0val
 				}
-				f3f0.SetRuleVariables(f3f0f0)
+				f3f0.RuleVariables = f3f0f0
 			}
-			f3.SetPolicyVariables(f3f0)
+			f3.PolicyVariables = f3f0
 		}
 		if r.ko.Spec.FirewallPolicy.StatefulDefaultActions != nil {
-			f3f1 := []*string{}
-			for _, f3f1iter := range r.ko.Spec.FirewallPolicy.StatefulDefaultActions {
-				var f3f1elem string
-				f3f1elem = *f3f1iter
-				f3f1 = append(f3f1, &f3f1elem)
-			}
-			f3.SetStatefulDefaultActions(f3f1)
+			f3.StatefulDefaultActions = aws.ToStringSlice(r.ko.Spec.FirewallPolicy.StatefulDefaultActions)
 		}
 		if r.ko.Spec.FirewallPolicy.StatefulEngineOptions != nil {
-			f3f2 := &svcsdk.StatefulEngineOptions{}
+			f3f2 := &svcsdktypes.StatefulEngineOptions{}
 			if r.ko.Spec.FirewallPolicy.StatefulEngineOptions.RuleOrder != nil {
-				f3f2.SetRuleOrder(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.RuleOrder)
+				f3f2.RuleOrder = svcsdktypes.RuleOrder(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.RuleOrder)
 			}
 			if r.ko.Spec.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy != nil {
-				f3f2.SetStreamExceptionPolicy(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy)
+				f3f2.StreamExceptionPolicy = svcsdktypes.StreamExceptionPolicy(*r.ko.Spec.FirewallPolicy.StatefulEngineOptions.StreamExceptionPolicy)
 			}
-			f3.SetStatefulEngineOptions(f3f2)
+			f3.StatefulEngineOptions = f3f2
 		}
 		if r.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences != nil {
-			f3f3 := []*svcsdk.StatefulRuleGroupReference{}
+			f3f3 := []svcsdktypes.StatefulRuleGroupReference{}
 			for _, f3f3iter := range r.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences {
-				f3f3elem := &svcsdk.StatefulRuleGroupReference{}
+				f3f3elem := &svcsdktypes.StatefulRuleGroupReference{}
 				if f3f3iter.Override != nil {
-					f3f3elemf0 := &svcsdk.StatefulRuleGroupOverride{}
+					f3f3elemf0 := &svcsdktypes.StatefulRuleGroupOverride{}
 					if f3f3iter.Override.Action != nil {
-						f3f3elemf0.SetAction(*f3f3iter.Override.Action)
+						f3f3elemf0.Action = svcsdktypes.OverrideAction(*f3f3iter.Override.Action)
 					}
-					f3f3elem.SetOverride(f3f3elemf0)
+					f3f3elem.Override = f3f3elemf0
 				}
 				if f3f3iter.Priority != nil {
-					f3f3elem.SetPriority(*f3f3iter.Priority)
+					priorityCopy0 := *f3f3iter.Priority
+					if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+						return nil, fmt.Errorf("error: field Priority is of type int32")
+					}
+					priorityCopy := int32(priorityCopy0)
+					f3f3elem.Priority = &priorityCopy
 				}
 				if f3f3iter.ResourceARN != nil {
-					f3f3elem.SetResourceArn(*f3f3iter.ResourceARN)
+					f3f3elem.ResourceArn = f3f3iter.ResourceARN
 				}
-				f3f3 = append(f3f3, f3f3elem)
+				f3f3 = append(f3f3, *f3f3elem)
 			}
-			f3.SetStatefulRuleGroupReferences(f3f3)
+			f3.StatefulRuleGroupReferences = f3f3
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessCustomActions != nil {
-			f3f4 := []*svcsdk.CustomAction{}
+			f3f4 := []svcsdktypes.CustomAction{}
 			for _, f3f4iter := range r.ko.Spec.FirewallPolicy.StatelessCustomActions {
-				f3f4elem := &svcsdk.CustomAction{}
+				f3f4elem := &svcsdktypes.CustomAction{}
 				if f3f4iter.ActionDefinition != nil {
-					f3f4elemf0 := &svcsdk.ActionDefinition{}
+					f3f4elemf0 := &svcsdktypes.ActionDefinition{}
 					if f3f4iter.ActionDefinition.PublishMetricAction != nil {
-						f3f4elemf0f0 := &svcsdk.PublishMetricAction{}
+						f3f4elemf0f0 := &svcsdktypes.PublishMetricAction{}
 						if f3f4iter.ActionDefinition.PublishMetricAction.Dimensions != nil {
-							f3f4elemf0f0f0 := []*svcsdk.Dimension{}
+							f3f4elemf0f0f0 := []svcsdktypes.Dimension{}
 							for _, f3f4elemf0f0f0iter := range f3f4iter.ActionDefinition.PublishMetricAction.Dimensions {
-								f3f4elemf0f0f0elem := &svcsdk.Dimension{}
+								f3f4elemf0f0f0elem := &svcsdktypes.Dimension{}
 								if f3f4elemf0f0f0iter.Value != nil {
-									f3f4elemf0f0f0elem.SetValue(*f3f4elemf0f0f0iter.Value)
+									f3f4elemf0f0f0elem.Value = f3f4elemf0f0f0iter.Value
 								}
-								f3f4elemf0f0f0 = append(f3f4elemf0f0f0, f3f4elemf0f0f0elem)
+								f3f4elemf0f0f0 = append(f3f4elemf0f0f0, *f3f4elemf0f0f0elem)
 							}
-							f3f4elemf0f0.SetDimensions(f3f4elemf0f0f0)
+							f3f4elemf0f0.Dimensions = f3f4elemf0f0f0
 						}
-						f3f4elemf0.SetPublishMetricAction(f3f4elemf0f0)
+						f3f4elemf0.PublishMetricAction = f3f4elemf0f0
 					}
-					f3f4elem.SetActionDefinition(f3f4elemf0)
+					f3f4elem.ActionDefinition = f3f4elemf0
 				}
 				if f3f4iter.ActionName != nil {
-					f3f4elem.SetActionName(*f3f4iter.ActionName)
+					f3f4elem.ActionName = f3f4iter.ActionName
 				}
-				f3f4 = append(f3f4, f3f4elem)
+				f3f4 = append(f3f4, *f3f4elem)
 			}
-			f3.SetStatelessCustomActions(f3f4)
+			f3.StatelessCustomActions = f3f4
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessDefaultActions != nil {
-			f3f5 := []*string{}
-			for _, f3f5iter := range r.ko.Spec.FirewallPolicy.StatelessDefaultActions {
-				var f3f5elem string
-				f3f5elem = *f3f5iter
-				f3f5 = append(f3f5, &f3f5elem)
-			}
-			f3.SetStatelessDefaultActions(f3f5)
+			f3.StatelessDefaultActions = aws.ToStringSlice(r.ko.Spec.FirewallPolicy.StatelessDefaultActions)
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessFragmentDefaultActions != nil {
-			f3f6 := []*string{}
-			for _, f3f6iter := range r.ko.Spec.FirewallPolicy.StatelessFragmentDefaultActions {
-				var f3f6elem string
-				f3f6elem = *f3f6iter
-				f3f6 = append(f3f6, &f3f6elem)
-			}
-			f3.SetStatelessFragmentDefaultActions(f3f6)
+			f3.StatelessFragmentDefaultActions = aws.ToStringSlice(r.ko.Spec.FirewallPolicy.StatelessFragmentDefaultActions)
 		}
 		if r.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences != nil {
-			f3f7 := []*svcsdk.StatelessRuleGroupReference{}
+			f3f7 := []svcsdktypes.StatelessRuleGroupReference{}
 			for _, f3f7iter := range r.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences {
-				f3f7elem := &svcsdk.StatelessRuleGroupReference{}
+				f3f7elem := &svcsdktypes.StatelessRuleGroupReference{}
 				if f3f7iter.Priority != nil {
-					f3f7elem.SetPriority(*f3f7iter.Priority)
+					priorityCopy0 := *f3f7iter.Priority
+					if priorityCopy0 > math.MaxInt32 || priorityCopy0 < math.MinInt32 {
+						return nil, fmt.Errorf("error: field Priority is of type int32")
+					}
+					priorityCopy := int32(priorityCopy0)
+					f3f7elem.Priority = &priorityCopy
 				}
 				if f3f7iter.ResourceARN != nil {
-					f3f7elem.SetResourceArn(*f3f7iter.ResourceARN)
+					f3f7elem.ResourceArn = f3f7iter.ResourceARN
 				}
-				f3f7 = append(f3f7, f3f7elem)
+				f3f7 = append(f3f7, *f3f7elem)
 			}
-			f3.SetStatelessRuleGroupReferences(f3f7)
+			f3.StatelessRuleGroupReferences = f3f7
 		}
 		if r.ko.Spec.FirewallPolicy.TLSInspectionConfigurationARN != nil {
-			f3.SetTLSInspectionConfigurationArn(*r.ko.Spec.FirewallPolicy.TLSInspectionConfigurationARN)
+			f3.TLSInspectionConfigurationArn = r.ko.Spec.FirewallPolicy.TLSInspectionConfigurationARN
 		}
-		res.SetFirewallPolicy(f3)
+		res.FirewallPolicy = f3
 	}
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetFirewallPolicyArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.FirewallPolicyArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.FirewallPolicyName != nil {
-		res.SetFirewallPolicyName(*r.ko.Spec.FirewallPolicyName)
+		res.FirewallPolicyName = r.ko.Spec.FirewallPolicyName
 	}
 	if r.ko.Status.UpdateToken != nil {
-		res.SetUpdateToken(*r.ko.Status.UpdateToken)
+		res.UpdateToken = r.ko.Status.UpdateToken
 	}
 
 	return res, nil
@@ -859,7 +819,7 @@ func (rm *resourceManager) sdkDelete(
 	}
 	var resp *svcsdk.DeleteFirewallPolicyOutput
 	_ = resp
-	resp, err = rm.sdkapi.DeleteFirewallPolicyWithContext(ctx, input)
+	resp, err = rm.sdkapi.DeleteFirewallPolicy(ctx, input)
 	rm.metrics.RecordAPICall("DELETE", "DeleteFirewallPolicy", err)
 	return nil, err
 }
@@ -872,10 +832,10 @@ func (rm *resourceManager) newDeleteRequestPayload(
 	res := &svcsdk.DeleteFirewallPolicyInput{}
 
 	if r.ko.Status.ACKResourceMetadata != nil && r.ko.Status.ACKResourceMetadata.ARN != nil {
-		res.SetFirewallPolicyArn(string(*r.ko.Status.ACKResourceMetadata.ARN))
+		res.FirewallPolicyArn = (*string)(r.ko.Status.ACKResourceMetadata.ARN)
 	}
 	if r.ko.Spec.FirewallPolicyName != nil {
-		res.SetFirewallPolicyName(*r.ko.Spec.FirewallPolicyName)
+		res.FirewallPolicyName = r.ko.Spec.FirewallPolicyName
 	}
 
 	return res, nil
@@ -983,11 +943,12 @@ func (rm *resourceManager) terminalAWSError(err error) bool {
 	if err == nil {
 		return false
 	}
-	awsErr, ok := ackerr.AWSError(err)
-	if !ok {
+
+	var terminalErr smithy.APIError
+	if !errors.As(err, &terminalErr) {
 		return false
 	}
-	switch awsErr.Code() {
+	switch terminalErr.ErrorCode() {
 	case "InvalidRequestException":
 		return true
 	default:

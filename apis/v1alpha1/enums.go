@@ -20,32 +20,32 @@ type AttachmentStatus string
 const (
 	AttachmentStatus_CREATING AttachmentStatus = "CREATING"
 	AttachmentStatus_DELETING AttachmentStatus = "DELETING"
-	AttachmentStatus_FAILED   AttachmentStatus = "FAILED"
 	AttachmentStatus_ERROR    AttachmentStatus = "ERROR"
-	AttachmentStatus_SCALING  AttachmentStatus = "SCALING"
+	AttachmentStatus_FAILED   AttachmentStatus = "FAILED"
 	AttachmentStatus_READY    AttachmentStatus = "READY"
+	AttachmentStatus_SCALING  AttachmentStatus = "SCALING"
 )
 
 type ConfigurationSyncState string
 
 const (
-	ConfigurationSyncState_PENDING              ConfigurationSyncState = "PENDING"
-	ConfigurationSyncState_IN_SYNC              ConfigurationSyncState = "IN_SYNC"
 	ConfigurationSyncState_CAPACITY_CONSTRAINED ConfigurationSyncState = "CAPACITY_CONSTRAINED"
+	ConfigurationSyncState_IN_SYNC              ConfigurationSyncState = "IN_SYNC"
+	ConfigurationSyncState_PENDING              ConfigurationSyncState = "PENDING"
 )
 
 type EncryptionType string
 
 const (
-	EncryptionType_CUSTOMER_KMS      EncryptionType = "CUSTOMER_KMS"
 	EncryptionType_AWS_OWNED_KMS_KEY EncryptionType = "AWS_OWNED_KMS_KEY"
+	EncryptionType_CUSTOMER_KMS      EncryptionType = "CUSTOMER_KMS"
 )
 
 type FirewallStatusValue string
 
 const (
-	FirewallStatusValue_PROVISIONING FirewallStatusValue = "PROVISIONING"
 	FirewallStatusValue_DELETING     FirewallStatusValue = "DELETING"
+	FirewallStatusValue_PROVISIONING FirewallStatusValue = "PROVISIONING"
 	FirewallStatusValue_READY        FirewallStatusValue = "READY"
 )
 
@@ -59,8 +59,8 @@ const (
 type IDentifiedType string
 
 const (
-	IDentifiedType_STATELESS_RULE_FORWARDING_ASYMMETRICALLY IDentifiedType = "STATELESS_RULE_FORWARDING_ASYMMETRICALLY"
 	IDentifiedType_STATELESS_RULE_CONTAINS_TCP_FLAGS        IDentifiedType = "STATELESS_RULE_CONTAINS_TCP_FLAGS"
+	IDentifiedType_STATELESS_RULE_FORWARDING_ASYMMETRICALLY IDentifiedType = "STATELESS_RULE_FORWARDING_ASYMMETRICALLY"
 )
 
 type IPAddressType string
@@ -74,9 +74,9 @@ const (
 type LogDestinationType string
 
 const (
-	LogDestinationType_S3                  LogDestinationType = "S3"
 	LogDestinationType_CloudWatchLogs      LogDestinationType = "CloudWatchLogs"
 	LogDestinationType_KinesisDataFirehose LogDestinationType = "KinesisDataFirehose"
+	LogDestinationType_S3                  LogDestinationType = "S3"
 )
 
 type LogType string
@@ -84,6 +84,7 @@ type LogType string
 const (
 	LogType_ALERT LogType = "ALERT"
 	LogType_FLOW  LogType = "FLOW"
+	LogType_TLS   LogType = "TLS"
 )
 
 type OverrideAction string
@@ -95,23 +96,23 @@ const (
 type PerObjectSyncStatus string
 
 const (
-	PerObjectSyncStatus_PENDING              PerObjectSyncStatus = "PENDING"
-	PerObjectSyncStatus_IN_SYNC              PerObjectSyncStatus = "IN_SYNC"
 	PerObjectSyncStatus_CAPACITY_CONSTRAINED PerObjectSyncStatus = "CAPACITY_CONSTRAINED"
+	PerObjectSyncStatus_IN_SYNC              PerObjectSyncStatus = "IN_SYNC"
+	PerObjectSyncStatus_PENDING              PerObjectSyncStatus = "PENDING"
 )
 
 type ResourceManagedStatus string
 
 const (
-	ResourceManagedStatus_MANAGED ResourceManagedStatus = "MANAGED"
 	ResourceManagedStatus_ACCOUNT ResourceManagedStatus = "ACCOUNT"
+	ResourceManagedStatus_MANAGED ResourceManagedStatus = "MANAGED"
 )
 
 type ResourceManagedType string
 
 const (
-	ResourceManagedType_AWS_MANAGED_THREAT_SIGNATURES ResourceManagedType = "AWS_MANAGED_THREAT_SIGNATURES"
 	ResourceManagedType_AWS_MANAGED_DOMAIN_LISTS      ResourceManagedType = "AWS_MANAGED_DOMAIN_LISTS"
+	ResourceManagedType_AWS_MANAGED_THREAT_SIGNATURES ResourceManagedType = "AWS_MANAGED_THREAT_SIGNATURES"
 )
 
 type ResourceStatus string
@@ -125,16 +126,16 @@ const (
 type RevocationCheckAction string
 
 const (
-	RevocationCheckAction_PASS   RevocationCheckAction = "PASS"
 	RevocationCheckAction_DROP   RevocationCheckAction = "DROP"
+	RevocationCheckAction_PASS   RevocationCheckAction = "PASS"
 	RevocationCheckAction_REJECT RevocationCheckAction = "REJECT"
 )
 
 type RuleGroupType string
 
 const (
-	RuleGroupType_STATELESS RuleGroupType = "STATELESS"
 	RuleGroupType_STATEFUL  RuleGroupType = "STATEFUL"
+	RuleGroupType_STATELESS RuleGroupType = "STATELESS"
 )
 
 type RuleOrder string
@@ -147,67 +148,67 @@ const (
 type StatefulAction string
 
 const (
-	StatefulAction_PASS   StatefulAction = "PASS"
-	StatefulAction_DROP   StatefulAction = "DROP"
 	StatefulAction_ALERT  StatefulAction = "ALERT"
+	StatefulAction_DROP   StatefulAction = "DROP"
+	StatefulAction_PASS   StatefulAction = "PASS"
 	StatefulAction_REJECT StatefulAction = "REJECT"
 )
 
 type StatefulRuleDirection string
 
 const (
-	StatefulRuleDirection_FORWARD StatefulRuleDirection = "FORWARD"
 	StatefulRuleDirection_ANY     StatefulRuleDirection = "ANY"
+	StatefulRuleDirection_FORWARD StatefulRuleDirection = "FORWARD"
 )
 
 type StatefulRuleProtocol string
 
 const (
-	StatefulRuleProtocol_IP     StatefulRuleProtocol = "IP"
-	StatefulRuleProtocol_TCP    StatefulRuleProtocol = "TCP"
-	StatefulRuleProtocol_UDP    StatefulRuleProtocol = "UDP"
-	StatefulRuleProtocol_ICMP   StatefulRuleProtocol = "ICMP"
-	StatefulRuleProtocol_HTTP   StatefulRuleProtocol = "HTTP"
-	StatefulRuleProtocol_FTP    StatefulRuleProtocol = "FTP"
-	StatefulRuleProtocol_TLS    StatefulRuleProtocol = "TLS"
-	StatefulRuleProtocol_SMB    StatefulRuleProtocol = "SMB"
-	StatefulRuleProtocol_DNS    StatefulRuleProtocol = "DNS"
 	StatefulRuleProtocol_DCERPC StatefulRuleProtocol = "DCERPC"
-	StatefulRuleProtocol_SSH    StatefulRuleProtocol = "SSH"
-	StatefulRuleProtocol_SMTP   StatefulRuleProtocol = "SMTP"
-	StatefulRuleProtocol_IMAP   StatefulRuleProtocol = "IMAP"
-	StatefulRuleProtocol_MSN    StatefulRuleProtocol = "MSN"
-	StatefulRuleProtocol_KRB5   StatefulRuleProtocol = "KRB5"
-	StatefulRuleProtocol_IKEV2  StatefulRuleProtocol = "IKEV2"
-	StatefulRuleProtocol_TFTP   StatefulRuleProtocol = "TFTP"
-	StatefulRuleProtocol_NTP    StatefulRuleProtocol = "NTP"
 	StatefulRuleProtocol_DHCP   StatefulRuleProtocol = "DHCP"
+	StatefulRuleProtocol_DNS    StatefulRuleProtocol = "DNS"
+	StatefulRuleProtocol_FTP    StatefulRuleProtocol = "FTP"
+	StatefulRuleProtocol_HTTP   StatefulRuleProtocol = "HTTP"
+	StatefulRuleProtocol_ICMP   StatefulRuleProtocol = "ICMP"
+	StatefulRuleProtocol_IKEV2  StatefulRuleProtocol = "IKEV2"
+	StatefulRuleProtocol_IMAP   StatefulRuleProtocol = "IMAP"
+	StatefulRuleProtocol_IP     StatefulRuleProtocol = "IP"
+	StatefulRuleProtocol_KRB5   StatefulRuleProtocol = "KRB5"
+	StatefulRuleProtocol_MSN    StatefulRuleProtocol = "MSN"
+	StatefulRuleProtocol_NTP    StatefulRuleProtocol = "NTP"
+	StatefulRuleProtocol_SMB    StatefulRuleProtocol = "SMB"
+	StatefulRuleProtocol_SMTP   StatefulRuleProtocol = "SMTP"
+	StatefulRuleProtocol_SSH    StatefulRuleProtocol = "SSH"
+	StatefulRuleProtocol_TCP    StatefulRuleProtocol = "TCP"
+	StatefulRuleProtocol_TFTP   StatefulRuleProtocol = "TFTP"
+	StatefulRuleProtocol_TLS    StatefulRuleProtocol = "TLS"
+	StatefulRuleProtocol_UDP    StatefulRuleProtocol = "UDP"
 )
 
 type StreamExceptionPolicy string
 
 const (
-	StreamExceptionPolicy_DROP     StreamExceptionPolicy = "DROP"
 	StreamExceptionPolicy_CONTINUE StreamExceptionPolicy = "CONTINUE"
+	StreamExceptionPolicy_DROP     StreamExceptionPolicy = "DROP"
 	StreamExceptionPolicy_REJECT   StreamExceptionPolicy = "REJECT"
 )
 
 type TCPFlag string
 
 const (
-	TCPFlag_FIN TCPFlag = "FIN"
-	TCPFlag_SYN TCPFlag = "SYN"
-	TCPFlag_RST TCPFlag = "RST"
-	TCPFlag_PSH TCPFlag = "PSH"
 	TCPFlag_ACK TCPFlag = "ACK"
-	TCPFlag_URG TCPFlag = "URG"
-	TCPFlag_ECE TCPFlag = "ECE"
 	TCPFlag_CWR TCPFlag = "CWR"
+	TCPFlag_ECE TCPFlag = "ECE"
+	TCPFlag_FIN TCPFlag = "FIN"
+	TCPFlag_PSH TCPFlag = "PSH"
+	TCPFlag_RST TCPFlag = "RST"
+	TCPFlag_SYN TCPFlag = "SYN"
+	TCPFlag_URG TCPFlag = "URG"
 )
 
 type TargetType string
 
 const (
-	TargetType_TLS_SNI   TargetType = "TLS_SNI"
 	TargetType_HTTP_HOST TargetType = "HTTP_HOST"
+	TargetType_TLS_SNI   TargetType = "TLS_SNI"
 )

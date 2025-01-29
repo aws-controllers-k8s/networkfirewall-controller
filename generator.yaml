@@ -1,6 +1,9 @@
+sdk_names:
+  model_name: network-firewall
 ignore:
   field_paths:
   - CreateFirewallPolicyInput.DryRun
+  - StatefulEngineOptions.FlowTimeouts
   resource_names:
   - TLSInspectionConfiguration
 resources:
