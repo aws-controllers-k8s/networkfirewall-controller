@@ -41,6 +41,7 @@ type RuleGroupSpec struct {
 	// TRUE, Network Firewall runs the analysis and then creates the rule group
 	// for you. To run the stateless rule group analyzer without creating the rule
 	// group, set DryRun to TRUE.
+
 	AnalyzeRuleGroup *bool `json:"analyzeRuleGroup,omitempty"`
 	// The maximum operating resources that this rule group can use. Rule group
 	// capacity is fixed at creation. When you update a rule group, you are limited
@@ -53,7 +54,7 @@ type RuleGroupSpec struct {
 	// You can't change or exceed this capacity when you update the rule group,
 	// so leave room for your rule group to grow.
 	//
-	// # Capacity for a stateless rule group
+	// Capacity for a stateless rule group
 	//
 	// For a stateless rule group, the capacity required is the sum of the capacity
 	// requirements of the individual rules that you expect to have in the rule
@@ -62,15 +63,15 @@ type RuleGroupSpec struct {
 	// To calculate the capacity requirement of a single rule, multiply the capacity
 	// requirement values of each of the rule's match settings:
 	//
-	//   - A match setting with no criteria specified has a value of 1.
+	//    * A match setting with no criteria specified has a value of 1.
 	//
-	//   - A match setting with Any specified has a value of 1.
+	//    * A match setting with Any specified has a value of 1.
 	//
-	//   - All other match settings have a value equal to the number of elements
-	//     provided in the setting. For example, a protocol setting ["UDP"] and a
-	//     source setting ["10.0.0.0/24"] each have a value of 1. A protocol setting
-	//     ["UDP","TCP"] has a value of 2. A source setting ["10.0.0.0/24","10.0.0.1/24","10.0.0.2/24"]
-	//     has a value of 3.
+	//    * All other match settings have a value equal to the number of elements
+	//    provided in the setting. For example, a protocol setting ["UDP"] and a
+	//    source setting ["10.0.0.0/24"] each have a value of 1. A protocol setting
+	//    ["UDP","TCP"] has a value of 2. A source setting ["10.0.0.0/24","10.0.0.1/24","10.0.0.2/24"]
+	//    has a value of 3.
 	//
 	// A rule with no criteria specified in any of its match settings has a capacity
 	// requirement of 1. A rule with protocol setting ["UDP","TCP"], source setting
@@ -78,13 +79,16 @@ type RuleGroupSpec struct {
 	// no specification for each of the other match settings has a capacity requirement
 	// of 6.
 	//
-	// # Capacity for a stateful rule group
+	// Capacity for a stateful rule group
 	//
 	// For a stateful rule group, the minimum capacity required is the number of
 	// individual rules that you expect to have in the rule group.
+
 	// +kubebuilder:validation:Required
+
 	Capacity *int64 `json:"capacity"`
 	// A description of the rule group.
+
 	Description *string `json:"description,omitempty"`
 	// Indicates whether you want Network Firewall to just check the validity of
 	// the request, rather than run the request.
@@ -97,17 +101,22 @@ type RuleGroupSpec struct {
 	// that your request parameters are valid.
 	//
 	// If set to FALSE, Network Firewall makes the requested changes to your resources.
+
 	DryRun *bool `json:"dryRun,omitempty"`
 	// A complex type that contains settings for encryption of your rule group resources.
+
 	EncryptionConfiguration *EncryptionConfiguration `json:"encryptionConfiguration,omitempty"`
 	// An object that defines the rule group rules.
 	//
 	// You must provide either this rule group setting or a Rules setting, but not
 	// both.
+
 	RuleGroup *RuleGroup_SDK `json:"ruleGroup,omitempty"`
 	// The descriptive name of the rule group. You can't change the name of a rule
 	// group after you create it.
+
 	// +kubebuilder:validation:Required
+
 	RuleGroupName *string `json:"ruleGroupName"`
 	// A string containing stateful rule group rules specifications in Suricata
 	// flat format, with one ruleper line. Use this to import your existing Suricata
@@ -120,17 +129,22 @@ type RuleGroupSpec struct {
 	// this setting when you create or update your rule group. The callresponse
 	// returns a RuleGroup object that Network Firewall has populated from your
 	// string.
+
 	Rules *string `json:"rules,omitempty"`
 	// A complex type that contains metadata about the rule group that your own
 	// rule group is copied from. You can use the metadata to keep track of updates
 	// made to the originating rule group.
+
 	SourceMetadata *SourceMetadata `json:"sourceMetadata,omitempty"`
 	// The key:value pairs to associate with the resource.
+
 	Tags []*Tag `json:"tags,omitempty"`
 	// Indicates whether the rule group is stateless or stateful. If the rule group
 	// is stateless, it containsstateless rules. If it is stateful, it contains
 	// stateful rules.
+
 	// +kubebuilder:validation:Required
+
 	Type *string `json:"type_"`
 }
 
@@ -141,7 +155,7 @@ type RuleGroupStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

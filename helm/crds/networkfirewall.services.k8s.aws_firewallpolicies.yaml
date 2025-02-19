@@ -48,12 +48,17 @@ spec:
               all objects for a firewall policy by calling DescribeFirewallPolicy.
             properties:
               description:
-                description: A description of the firewall policy.
                 type: string
               encryptionConfiguration:
                 description: |-
-                  A complex type that contains settings for encryption of your firewall policy
-                  resources.
+                  A complex type that contains optional Amazon Web Services Key Management
+                  Service (KMS) encryption settings for your Network Firewall resources. Your
+                  data is encrypted by default with an Amazon Web Services owned key that Amazon
+                  Web Services owns and manages for you. You can use either the Amazon Web
+                  Services owned key, or provide your own customer managed key. To learn more
+                  about KMS encryption of your Network Firewall resources, see Encryption at
+                  rest with Amazon Web Services Key Managment Service (https://docs.aws.amazon.com/kms/latest/developerguide/kms-encryption-at-rest.html)
+                  in the Network Firewall Developer Guide.
                 properties:
                   keyID:
                     type: string
@@ -61,8 +66,13 @@ spec:
                     type: string
                 type: object
               firewallPolicy:
-                description: The rule groups and policy actions to use in the firewall
-                  policy.
+                description: |-
+                  The firewall policy defines the behavior of a firewall using a collection
+                  of stateless and stateful rule groups and other settings. You can use one
+                  firewall policy for multiple firewalls.
+
+                  This, along with FirewallPolicyResponse, define the policy. You can retrieve
+                  all objects for a firewall policy by calling DescribeFirewallPolicy.
                 properties:
                   policyVariables:
                     description: |-
@@ -199,12 +209,8 @@ spec:
                     type: string
                 type: object
               firewallPolicyName:
-                description: |-
-                  The descriptive name of the firewall policy. You can't change the name of
-                  a firewall policy after you create it.
                 type: string
               tags:
-                description: The key:value pairs to associate with the resource.
                 items:
                   description: |-
                     A key:value pair associated with an Amazon Web Services resource. The key:value
@@ -257,7 +263,7 @@ spec:
                 type: object
               conditions:
                 description: |-
-                  All CRS managed by ACK have a common `Status.Conditions` member that
+                  All CRs managed by ACK have a common `Status.Conditions` member that
                   contains a collection of `ackv1alpha1.Condition` objects that describe
                   the various terminal states of the CR and its backend AWS service API
                   resource

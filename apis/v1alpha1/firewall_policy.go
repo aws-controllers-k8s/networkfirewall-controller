@@ -31,18 +31,25 @@ import (
 type FirewallPolicySpec struct {
 
 	// A description of the firewall policy.
+
 	Description *string `json:"description,omitempty"`
 	// A complex type that contains settings for encryption of your firewall policy
 	// resources.
+
 	EncryptionConfiguration *EncryptionConfiguration `json:"encryptionConfiguration,omitempty"`
 	// The rule groups and policy actions to use in the firewall policy.
+
 	// +kubebuilder:validation:Required
+
 	FirewallPolicy *FirewallPolicy_SDK `json:"firewallPolicy"`
 	// The descriptive name of the firewall policy. You can't change the name of
 	// a firewall policy after you create it.
+
 	// +kubebuilder:validation:Required
+
 	FirewallPolicyName *string `json:"firewallPolicyName"`
 	// The key:value pairs to associate with the resource.
+
 	Tags []*Tag `json:"tags,omitempty"`
 }
 
@@ -53,7 +60,7 @@ type FirewallPolicyStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource

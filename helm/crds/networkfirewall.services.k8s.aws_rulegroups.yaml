@@ -54,77 +54,24 @@ spec:
               more than one firewall.
             properties:
               analyzeRuleGroup:
-                description: |-
-                  Indicates whether you want Network Firewall to analyze the stateless rules
-                  in the rule group for rule behavior such as asymmetric routing. If set to
-                  TRUE, Network Firewall runs the analysis and then creates the rule group
-                  for you. To run the stateless rule group analyzer without creating the rule
-                  group, set DryRun to TRUE.
                 type: boolean
               capacity:
-                description: |-
-                  The maximum operating resources that this rule group can use. Rule group
-                  capacity is fixed at creation. When you update a rule group, you are limited
-                  to this capacity. When you reference a rule group from a firewall policy,
-                  Network Firewall reserves this capacity for the rule group.
-
-                  You can retrieve the capacity that would be required for a rule group before
-                  you create the rule group by calling CreateRuleGroup with DryRun set to TRUE.
-
-                  You can't change or exceed this capacity when you update the rule group,
-                  so leave room for your rule group to grow.
-
-                  # Capacity for a stateless rule group
-
-                  For a stateless rule group, the capacity required is the sum of the capacity
-                  requirements of the individual rules that you expect to have in the rule
-                  group.
-
-                  To calculate the capacity requirement of a single rule, multiply the capacity
-                  requirement values of each of the rule's match settings:
-
-                    - A match setting with no criteria specified has a value of 1.
-
-                    - A match setting with Any specified has a value of 1.
-
-                    - All other match settings have a value equal to the number of elements
-                      provided in the setting. For example, a protocol setting ["UDP"] and a
-                      source setting ["10.0.0.0/24"] each have a value of 1. A protocol setting
-                      ["UDP","TCP"] has a value of 2. A source setting ["10.0.0.0/24","10.0.0.1/24","10.0.0.2/24"]
-                      has a value of 3.
-
-                  A rule with no criteria specified in any of its match settings has a capacity
-                  requirement of 1. A rule with protocol setting ["UDP","TCP"], source setting
-                  ["10.0.0.0/24","10.0.0.1/24","10.0.0.2/24"], and a single specification or
-                  no specification for each of the other match settings has a capacity requirement
-                  of 6.
-
-                  # Capacity for a stateful rule group
-
-                  For a stateful rule group, the minimum capacity required is the number of
-                  individual rules that you expect to have in the rule group.
                 format: int64
                 type: integer
               description:
-                description: A description of the rule group.
                 type: string
               dryRun:
-                description: |-
-                  Indicates whether you want Network Firewall to just check the validity of
-                  the request, rather than run the request.
-
-                  If set to TRUE, Network Firewall checks whether the request can run successfully,
-                  but doesn't actually make the requested changes. The call returns the value
-                  that the request would return if you ran it with dry run set to FALSE, but
-                  doesn't make additions or changes to your resources. This option allows you
-                  to make sure that you have the required permissions to run the request and
-                  that your request parameters are valid.
-
-                  If set to FALSE, Network Firewall makes the requested changes to your resources.
                 type: boolean
               encryptionConfiguration:
-                description: A complex type that contains settings for encryption
-                  of your rule group resources.
+                description: |-
+                  A complex type that contains optional Amazon Web Services Key Management
+                  Service (KMS) encryption settings for your Network Firewall resources. Your
+                  data is encrypted by default with an Amazon Web Services owned key that Amazon
+                  Web Services owns and manages for you. You can use either the Amazon Web
+                  Services owned key, or provide your own customer managed key. To learn more
+                  about KMS encryption of your Network Firewall resources, see Encryption at
+                  rest with Amazon Web Services Key Managment Service (https://docs.aws.amazon.com/kms/latest/developerguide/kms-encryption-at-rest.html)
+                  in the Network Firewall Developer Guide.
                 properties:
                   keyID:
                     type: string
@@ -133,10 +80,18 @@ spec:
                 type: object
               ruleGroup:
                 description: |-
-                  An object that defines the rule group rules.
+                  The object that defines the rules in a rule group. This, along with RuleGroupResponse,
+                  define the rule group. You can retrieve all objects for a rule group by calling
+                  DescribeRuleGroup.
 
-                  You must provide either this rule group setting or a Rules setting, but not
-                  both.
+                  Network Firewall uses a rule group to inspect and control network traffic.
+                  You define stateless rule groups to inspect individual packets and you define
+                  stateful rule groups to inspect packets in the context of their traffic flow.
+
+                  To use a rule group, you include it by reference in an Network Firewall firewall
+                  policy, then you use the policy in a firewall. You can reference a rule group
+                  from more than one firewall policy, and you can use a firewall policy in
+                  more than one firewall.
                 properties:
                   referenceSets:
                     description: Contains a set of IP set references.
@@ -445,29 +400,15 @@ spec:
                     type: object
                 type: object
               ruleGroupName:
-                description: |-
-                  The descriptive name of the rule group. You can't change the name of a rule
-                  group after you create it.
                 type: string
               rules:
-                description: |-
-                  A string containing stateful rule group rules specifications in Suricata
-                  flat format, with one ruleper line. Use this to import your existing Suricata
-                  compatible rule groups.
-
-                  You must provide either this rules setting or a populated RuleGroup setting,
-                  but not both.
-
-                  You can provide your rule group specification in Suricata flat format through
-                  this setting when you create or update your rule group. The callresponse
-                  returns a RuleGroup object that Network Firewall has populated from your
-                  string.
                 type: string
               sourceMetadata:
                 description: |-
-                  A complex type that contains metadata about the rule group that your own
-                  rule group is copied from. You can use the metadata to keep track of updates
-                  made to the originating rule group.
+                  High-level information about the managed rule group that your own rule group
+                  is copied from. You can use the the metadata to track version updates made
+                  to the originating rule group. You can retrieve all objects for a rule group
+                  by calling DescribeRuleGroup (https://docs.aws.amazon.com/network-firewall/latest/APIReference/API_DescribeRuleGroup.html).
                 properties:
                   sourceARN:
                     type: string
@@ -475,7 +416,6 @@ spec:
                     type: string
                 type: object
               tags:
-                description: The key:value pairs to associate with the resource.
                 items:
                   description: |-
                     A key:value pair associated with an Amazon Web Services resource. The key:value
@@ -491,10 +431,6 @@ spec:
                   type: object
                 type: array
               type_:
-                description: |-
-                  Indicates whether the rule group is stateless or stateful. If the rule group
-                  is stateless, it containsstateless rules. If it is stateful, it contains
-                  stateful rules.
                 type: string
             required:
             - capacity
@@ -535,7 +471,7 @@ spec:
                 type: object
               conditions:
                 description: |-
-                  All CRS managed by ACK have a common `Status.Conditions` member that
+                  All CRs managed by ACK have a common `Status.Conditions` member that
                   contains a collection of `ackv1alpha1.Condition` objects that describe
                   the various terminal states of the CR and its backend AWS service API
                   resource
