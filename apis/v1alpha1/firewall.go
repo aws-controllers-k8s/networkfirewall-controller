@@ -36,44 +36,59 @@ type FirewallSpec struct {
 	// of TRUE indicates that the firewall is protected against deletion. Use this
 	// setting to protect against accidentally deleting a firewall that is in use.
 	// When you create a firewall, the operation initializes this flag to TRUE.
+
 	DeleteProtection *bool `json:"deleteProtection,omitempty"`
 	// A description of the firewall.
+
 	Description *string `json:"description,omitempty"`
 	// A complex type that contains settings for encryption of your firewall resources.
+
 	EncryptionConfiguration *EncryptionConfiguration `json:"encryptionConfiguration,omitempty"`
 	// The descriptive name of the firewall. You can't change the name of a firewall
 	// after you create it.
+
 	// +kubebuilder:validation:Required
+
 	FirewallName *string `json:"firewallName"`
 	// The Amazon Resource Name (ARN) of the FirewallPolicy that you want to use
 	// for the firewall.
+
 	// +kubebuilder:validation:Required
+
 	FirewallPolicyARN *string `json:"firewallPolicyARN"`
 	// A setting indicating whether the firewall is protected against a change to
 	// the firewall policy association. Use this setting to protect against accidentally
 	// modifying the firewall policy for a firewall that is in use. When you create
 	// a firewall, the operation initializes this setting to TRUE.
+
 	FirewallPolicyChangeProtection *bool `json:"firewallPolicyChangeProtection,omitempty"`
 	// Defines how Network Firewall performs logging for a firewall. If you omit
 	// this setting, Network Firewall disables logging for the firewall.
+
 	LoggingConfiguration *LoggingConfiguration `json:"loggingConfiguration,omitempty"`
 	// A setting indicating whether the firewall is protected against changes to
 	// the subnet associations. Use this setting to protect against accidentally
 	// modifying the subnet associations for a firewall that is in use. When you
 	// create a firewall, the operation initializes this setting to TRUE.
+
 	SubnetChangeProtection *bool `json:"subnetChangeProtection,omitempty"`
 	// The public subnets to use for your Network Firewall firewalls. Each subnet
 	// must belong to a different Availability Zone in the VPC. Network Firewall
 	// creates a firewall endpoint in each subnet.
+
 	// +kubebuilder:validation:Required
+
 	SubnetMappings []*SubnetMapping `json:"subnetMappings"`
 	// The key:value pairs to associate with the resource.
+
 	Tags []*Tag `json:"tags,omitempty"`
 	// The unique identifier of the VPC where Network Firewall should create the
 	// firewall.
 	//
 	// You can't change this setting after you create the firewall.
+
 	// +kubebuilder:validation:Required
+
 	VPCID *string `json:"vpcID"`
 }
 
@@ -84,7 +99,7 @@ type FirewallStatus struct {
 	// constructed ARN for the resource
 	// +kubebuilder:validation:Optional
 	ACKResourceMetadata *ackv1alpha1.ResourceMetadata `json:"ackResourceMetadata"`
-	// All CRS managed by ACK have a common `Status.Conditions` member that
+	// All CRs managed by ACK have a common `Status.Conditions` member that
 	// contains a collection of `ackv1alpha1.Condition` objects that describe
 	// the various terminal states of the CR and its backend AWS service API
 	// resource
