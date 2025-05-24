@@ -31,6 +31,8 @@ import (
 type FirewallPolicySpec struct {
 
 	// A description of the firewall policy.
+	//
+	// Regex Pattern: `^.*$`
 	Description *string `json:"description,omitempty"`
 	// A complex type that contains settings for encryption of your firewall policy
 	// resources.
@@ -40,6 +42,8 @@ type FirewallPolicySpec struct {
 	FirewallPolicy *FirewallPolicy_SDK `json:"firewallPolicy"`
 	// The descriptive name of the firewall policy. You can't change the name of
 	// a firewall policy after you create it.
+	//
+	// Regex Pattern: `^[a-zA-Z0-9-]+$`
 	// +kubebuilder:validation:Required
 	FirewallPolicyName *string `json:"firewallPolicyName"`
 	// The key:value pairs to associate with the resource.
@@ -74,6 +78,8 @@ type FirewallPolicyStatus struct {
 	// If this happens, retrieve the firewall policy again to get a current copy
 	// of it with current token. Reapply your changes as needed, then try the operation
 	// again using the new token.
+	//
+	// Regex Pattern: `^([0-9a-f]{8})-([0-9a-f]{4}-){3}([0-9a-f]{12})$`
 	// +kubebuilder:validation:Optional
 	UpdateToken *string `json:"updateToken,omitempty"`
 }

@@ -38,15 +38,21 @@ type FirewallSpec struct {
 	// When you create a firewall, the operation initializes this flag to TRUE.
 	DeleteProtection *bool `json:"deleteProtection,omitempty"`
 	// A description of the firewall.
+	//
+	// Regex Pattern: `^.*$`
 	Description *string `json:"description,omitempty"`
 	// A complex type that contains settings for encryption of your firewall resources.
 	EncryptionConfiguration *EncryptionConfiguration `json:"encryptionConfiguration,omitempty"`
 	// The descriptive name of the firewall. You can't change the name of a firewall
 	// after you create it.
+	//
+	// Regex Pattern: `^[a-zA-Z0-9-]+$`
 	// +kubebuilder:validation:Required
 	FirewallName *string `json:"firewallName"`
 	// The Amazon Resource Name (ARN) of the FirewallPolicy that you want to use
 	// for the firewall.
+	//
+	// Regex Pattern: `^arn:aws`
 	// +kubebuilder:validation:Required
 	FirewallPolicyARN *string `json:"firewallPolicyARN"`
 	// A setting indicating whether the firewall is protected against a change to
@@ -73,6 +79,8 @@ type FirewallSpec struct {
 	// firewall.
 	//
 	// You can't change this setting after you create the firewall.
+	//
+	// Regex Pattern: `^vpc-[0-9a-f]+$`
 	// +kubebuilder:validation:Required
 	VPCID *string `json:"vpcID"`
 }

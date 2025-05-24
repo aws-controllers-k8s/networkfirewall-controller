@@ -106,7 +106,10 @@ spec:
                 format: int64
                 type: integer
               description:
-                description: A description of the rule group.
+                description: |-
+                  A description of the rule group.
+
+                  Regex Pattern: `^.*$`
                 type: string
               dryRun:
                 description: |-
@@ -448,6 +451,8 @@ spec:
                 description: |-
                   The descriptive name of the rule group. You can't change the name of a rule
                   group after you create it.
+
+                  Regex Pattern: `^[a-zA-Z0-9-]+$`
                 type: string
               rules:
                 description: |-
@@ -678,6 +683,8 @@ spec:
                   an InvalidTokenException. If this happens, retrieve the rule group again
                   to get a current copy of it with a current token. Reapply your changes as
                   needed, then try the operation again using the new token.
+
+                  Regex Pattern: `^([0-9a-f]{8})-([0-9a-f]{4}-){3}([0-9a-f]{12})$`
                 type: string
             type: object
         type: object

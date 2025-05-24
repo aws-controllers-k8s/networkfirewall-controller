@@ -85,6 +85,8 @@ type RuleGroupSpec struct {
 	// +kubebuilder:validation:Required
 	Capacity *int64 `json:"capacity"`
 	// A description of the rule group.
+	//
+	// Regex Pattern: `^.*$`
 	Description *string `json:"description,omitempty"`
 	// Indicates whether you want Network Firewall to just check the validity of
 	// the request, rather than run the request.
@@ -107,6 +109,8 @@ type RuleGroupSpec struct {
 	RuleGroup *RuleGroup_SDK `json:"ruleGroup,omitempty"`
 	// The descriptive name of the rule group. You can't change the name of a rule
 	// group after you create it.
+	//
+	// Regex Pattern: `^[a-zA-Z0-9-]+$`
 	// +kubebuilder:validation:Required
 	RuleGroupName *string `json:"ruleGroupName"`
 	// A string containing stateful rule group rules specifications in Suricata
@@ -162,6 +166,8 @@ type RuleGroupStatus struct {
 	// an InvalidTokenException. If this happens, retrieve the rule group again
 	// to get a current copy of it with a current token. Reapply your changes as
 	// needed, then try the operation again using the new token.
+	//
+	// Regex Pattern: `^([0-9a-f]{8})-([0-9a-f]{4}-){3}([0-9a-f]{12})$`
 	// +kubebuilder:validation:Optional
 	UpdateToken *string `json:"updateToken,omitempty"`
 }
