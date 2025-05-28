@@ -57,7 +57,10 @@ spec:
                   When you create a firewall, the operation initializes this flag to TRUE.
                 type: boolean
               description:
-                description: A description of the firewall.
+                description: |-
+                  A description of the firewall.
+
+                  Regex Pattern: `^.*$`
                 type: string
               encryptionConfiguration:
                 description: A complex type that contains settings for encryption
@@ -72,11 +75,15 @@ spec:
                 description: |-
                   The descriptive name of the firewall. You can't change the name of a firewall
                   after you create it.
+
+                  Regex Pattern: `^[a-zA-Z0-9-]+$`
                 type: string
               firewallPolicyARN:
                 description: |-
                   The Amazon Resource Name (ARN) of the FirewallPolicy that you want to use
                   for the firewall.
+
+                  Regex Pattern: `^arn:aws`
                 type: string
               firewallPolicyChangeProtection:
                 description: |-
@@ -158,6 +165,8 @@ spec:
                   firewall.
 
                   You can't change this setting after you create the firewall.
+
+                  Regex Pattern: `^vpc-[0-9a-f]+$`
                 type: string
             required:
             - firewallName

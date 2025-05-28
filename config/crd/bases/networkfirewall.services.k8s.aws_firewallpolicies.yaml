@@ -48,7 +48,10 @@ spec:
               all objects for a firewall policy by calling DescribeFirewallPolicy.
             properties:
               description:
-                description: A description of the firewall policy.
+                description: |-
+                  A description of the firewall policy.
+
+                  Regex Pattern: `^.*$`
                 type: string
               encryptionConfiguration:
                 description: |-
@@ -202,6 +205,8 @@ spec:
                 description: |-
                   The descriptive name of the firewall policy. You can't change the name of
                   a firewall policy after you create it.
+
+                  Regex Pattern: `^[a-zA-Z0-9-]+$`
                 type: string
               tags:
                 description: The key:value pairs to associate with the resource.
@@ -362,6 +367,8 @@ spec:
                   If this happens, retrieve the firewall policy again to get a current copy
                   of it with current token. Reapply your changes as needed, then try the operation
                   again using the new token.
+
+                  Regex Pattern: `^([0-9a-f]{8})-([0-9a-f]{4}-){3}([0-9a-f]{12})$`
                 type: string
             type: object
         type: object
