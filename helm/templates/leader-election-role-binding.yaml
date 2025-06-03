@@ -2,16 +2,23 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: networkfirewall-leader-election-rolebinding
+  name: {{ include "ack-networkfirewall-controller.app.fullname" . }}-leaderelection
 {{ if .Values.leaderElection.namespace }}
   namespace: {{ .Values.leaderElection.namespace }}
 {{ else }}
   namespace: {{ .Release.Namespace }}
 {{ end }}
+  labels:
+    app.kubernetes.io/name: {{ include "ack-networkfirewall-controller.app.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    k8s-app: {{ include "ack-networkfirewall-controller.app.name" . }}
+    helm.sh/chart: {{ include "ack-networkfirewall-controller.chart.name-version" . }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: networkfirewall-leader-election-role
+  name: {{ include "ack-networkfirewall-controller.app.fullname" . }}-leaderelection
 subjects:
 - kind: ServiceAccount
   name: {{ include "ack-networkfirewall-controller.service-account.name" . }}
