@@ -103,11 +103,11 @@ func (r *resource) SetIdentifiers(identifier *ackv1alpha1.AWSIdentifiers) error 
 
 // PopulateResourceFromAnnotation populates the fields passed from adoption annotation
 func (r *resource) PopulateResourceFromAnnotation(fields map[string]string) error {
-	tmp, ok := fields["ruleGroupName"]
+	primaryKey, ok := fields["ruleGroupName"]
 	if !ok {
 		return ackerrors.NewTerminalError(fmt.Errorf("required field missing: ruleGroupName"))
 	}
-	r.ko.Spec.RuleGroupName = &tmp
+	r.ko.Spec.RuleGroupName = &primaryKey
 
 	f3, f3ok := fields["type_"]
 	if f3ok {
