@@ -17,16 +17,15 @@ package firewall_policy
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -77,7 +76,7 @@ func newResourceDelta(
 			if len(a.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables) != len(b.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables) {
 				delta.Add("Spec.FirewallPolicy.PolicyVariables.RuleVariables", a.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables, b.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables)
 			} else if len(a.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables) > 0 {
-				if !reflect.DeepEqual(a.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables, b.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables) {
+				if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables, b.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables) {
 					delta.Add("Spec.FirewallPolicy.PolicyVariables.RuleVariables", a.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables, b.ko.Spec.FirewallPolicy.PolicyVariables.RuleVariables)
 				}
 			}
@@ -110,14 +109,14 @@ func newResourceDelta(
 		if len(a.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences) != len(b.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences) {
 			delta.Add("Spec.FirewallPolicy.StatefulRuleGroupReferences", a.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences)
 		} else if len(a.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences) > 0 {
-			if !reflect.DeepEqual(a.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences) {
+			if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences) {
 				delta.Add("Spec.FirewallPolicy.StatefulRuleGroupReferences", a.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatefulRuleGroupReferences)
 			}
 		}
 		if len(a.ko.Spec.FirewallPolicy.StatelessCustomActions) != len(b.ko.Spec.FirewallPolicy.StatelessCustomActions) {
 			delta.Add("Spec.FirewallPolicy.StatelessCustomActions", a.ko.Spec.FirewallPolicy.StatelessCustomActions, b.ko.Spec.FirewallPolicy.StatelessCustomActions)
 		} else if len(a.ko.Spec.FirewallPolicy.StatelessCustomActions) > 0 {
-			if !reflect.DeepEqual(a.ko.Spec.FirewallPolicy.StatelessCustomActions, b.ko.Spec.FirewallPolicy.StatelessCustomActions) {
+			if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.FirewallPolicy.StatelessCustomActions, b.ko.Spec.FirewallPolicy.StatelessCustomActions) {
 				delta.Add("Spec.FirewallPolicy.StatelessCustomActions", a.ko.Spec.FirewallPolicy.StatelessCustomActions, b.ko.Spec.FirewallPolicy.StatelessCustomActions)
 			}
 		}
@@ -138,7 +137,7 @@ func newResourceDelta(
 		if len(a.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences) != len(b.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences) {
 			delta.Add("Spec.FirewallPolicy.StatelessRuleGroupReferences", a.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences)
 		} else if len(a.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences) > 0 {
-			if !reflect.DeepEqual(a.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences) {
+			if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences) {
 				delta.Add("Spec.FirewallPolicy.StatelessRuleGroupReferences", a.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences, b.ko.Spec.FirewallPolicy.StatelessRuleGroupReferences)
 			}
 		}
