@@ -17,16 +17,15 @@ package rule_group
 
 import (
 	"bytes"
-	"reflect"
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
 var (
 	_ = &bytes.Buffer{}
-	_ = &reflect.Method{}
 	_ = &acktags.Tags{}
 )
 
@@ -98,7 +97,7 @@ func newResourceDelta(
 			if len(a.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences) != len(b.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences) {
 				delta.Add("Spec.RuleGroup.ReferenceSets.IPSetReferences", a.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences, b.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences)
 			} else if len(a.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences) > 0 {
-				if !reflect.DeepEqual(a.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences, b.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences) {
+				if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences, b.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences) {
 					delta.Add("Spec.RuleGroup.ReferenceSets.IPSetReferences", a.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences, b.ko.Spec.RuleGroup.ReferenceSets.IPSetReferences)
 				}
 			}
@@ -109,14 +108,14 @@ func newResourceDelta(
 			if len(a.ko.Spec.RuleGroup.RuleVariables.IPSets) != len(b.ko.Spec.RuleGroup.RuleVariables.IPSets) {
 				delta.Add("Spec.RuleGroup.RuleVariables.IPSets", a.ko.Spec.RuleGroup.RuleVariables.IPSets, b.ko.Spec.RuleGroup.RuleVariables.IPSets)
 			} else if len(a.ko.Spec.RuleGroup.RuleVariables.IPSets) > 0 {
-				if !reflect.DeepEqual(a.ko.Spec.RuleGroup.RuleVariables.IPSets, b.ko.Spec.RuleGroup.RuleVariables.IPSets) {
+				if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.RuleGroup.RuleVariables.IPSets, b.ko.Spec.RuleGroup.RuleVariables.IPSets) {
 					delta.Add("Spec.RuleGroup.RuleVariables.IPSets", a.ko.Spec.RuleGroup.RuleVariables.IPSets, b.ko.Spec.RuleGroup.RuleVariables.IPSets)
 				}
 			}
 			if len(a.ko.Spec.RuleGroup.RuleVariables.PortSets) != len(b.ko.Spec.RuleGroup.RuleVariables.PortSets) {
 				delta.Add("Spec.RuleGroup.RuleVariables.PortSets", a.ko.Spec.RuleGroup.RuleVariables.PortSets, b.ko.Spec.RuleGroup.RuleVariables.PortSets)
 			} else if len(a.ko.Spec.RuleGroup.RuleVariables.PortSets) > 0 {
-				if !reflect.DeepEqual(a.ko.Spec.RuleGroup.RuleVariables.PortSets, b.ko.Spec.RuleGroup.RuleVariables.PortSets) {
+				if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.RuleGroup.RuleVariables.PortSets, b.ko.Spec.RuleGroup.RuleVariables.PortSets) {
 					delta.Add("Spec.RuleGroup.RuleVariables.PortSets", a.ko.Spec.RuleGroup.RuleVariables.PortSets, b.ko.Spec.RuleGroup.RuleVariables.PortSets)
 				}
 			}
@@ -159,7 +158,7 @@ func newResourceDelta(
 			if len(a.ko.Spec.RuleGroup.RulesSource.StatefulRules) != len(b.ko.Spec.RuleGroup.RulesSource.StatefulRules) {
 				delta.Add("Spec.RuleGroup.RulesSource.StatefulRules", a.ko.Spec.RuleGroup.RulesSource.StatefulRules, b.ko.Spec.RuleGroup.RulesSource.StatefulRules)
 			} else if len(a.ko.Spec.RuleGroup.RulesSource.StatefulRules) > 0 {
-				if !reflect.DeepEqual(a.ko.Spec.RuleGroup.RulesSource.StatefulRules, b.ko.Spec.RuleGroup.RulesSource.StatefulRules) {
+				if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.RuleGroup.RulesSource.StatefulRules, b.ko.Spec.RuleGroup.RulesSource.StatefulRules) {
 					delta.Add("Spec.RuleGroup.RulesSource.StatefulRules", a.ko.Spec.RuleGroup.RulesSource.StatefulRules, b.ko.Spec.RuleGroup.RulesSource.StatefulRules)
 				}
 			}
@@ -169,14 +168,14 @@ func newResourceDelta(
 				if len(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions) != len(b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions) {
 					delta.Add("Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions", a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions)
 				} else if len(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions) > 0 {
-					if !reflect.DeepEqual(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions) {
+					if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions) {
 						delta.Add("Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions", a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.CustomActions)
 					}
 				}
 				if len(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules) != len(b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules) {
 					delta.Add("Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules", a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules)
 				} else if len(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules) > 0 {
-					if !reflect.DeepEqual(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules) {
+					if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules) {
 						delta.Add("Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules", a.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules, b.ko.Spec.RuleGroup.RulesSource.StatelessRulesAndCustomActions.StatelessRules)
 					}
 				}
