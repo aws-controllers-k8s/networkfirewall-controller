@@ -572,6 +572,8 @@ type StatefulRuleGroupReference struct {
 	Override    *StatefulRuleGroupOverride `json:"override,omitempty"`
 	Priority    *int64                     `json:"priority,omitempty"`
 	ResourceARN *string                    `json:"resourceARN,omitempty"`
+	// Reference field for ResourceARN
+	ResourceRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"resourceRef,omitempty"`
 }
 
 // Additional options governing how Network Firewall handles the rule group.
@@ -594,6 +596,8 @@ type StatelessRule struct {
 type StatelessRuleGroupReference struct {
 	Priority    *int64  `json:"priority,omitempty"`
 	ResourceARN *string `json:"resourceARN,omitempty"`
+	// Reference field for ResourceARN
+	ResourceRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"resourceRef,omitempty"`
 }
 
 // Stateless inspection criteria. Each stateless rule group uses exactly one
@@ -610,6 +614,8 @@ type StatelessRulesAndCustomActions struct {
 type SubnetMapping struct {
 	IPAddressType *string `json:"ipAddressType,omitempty"`
 	SubnetID      *string `json:"subnetID,omitempty"`
+	// Reference field for SubnetID
+	SubnetRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"subnetRef,omitempty"`
 }
 
 // The status of the firewall endpoint and firewall policy configuration for

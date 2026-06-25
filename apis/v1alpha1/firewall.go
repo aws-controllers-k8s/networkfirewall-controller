@@ -53,13 +53,13 @@ type FirewallSpec struct {
 	// for the firewall.
 	//
 	// Regex Pattern: `^arn:aws`
-	// +kubebuilder:validation:Required
-	FirewallPolicyARN *string `json:"firewallPolicyARN"`
+	FirewallPolicyARN *string `json:"firewallPolicyARN,omitempty"`
 	// A setting indicating whether the firewall is protected against a change to
 	// the firewall policy association. Use this setting to protect against accidentally
 	// modifying the firewall policy for a firewall that is in use. When you create
 	// a firewall, the operation initializes this setting to TRUE.
-	FirewallPolicyChangeProtection *bool `json:"firewallPolicyChangeProtection,omitempty"`
+	FirewallPolicyChangeProtection *bool                                    `json:"firewallPolicyChangeProtection,omitempty"`
+	FirewallPolicyRef              *ackv1alpha1.AWSResourceReferenceWrapper `json:"firewallPolicyRef,omitempty"`
 	// Defines how Network Firewall performs logging for a firewall. If you omit
 	// this setting, Network Firewall disables logging for the firewall.
 	LoggingConfiguration *LoggingConfiguration `json:"loggingConfiguration,omitempty"`
@@ -81,8 +81,8 @@ type FirewallSpec struct {
 	// You can't change this setting after you create the firewall.
 	//
 	// Regex Pattern: `^vpc-[0-9a-f]+$`
-	// +kubebuilder:validation:Required
-	VPCID *string `json:"vpcID"`
+	VPCID  *string                                  `json:"vpcID,omitempty"`
+	VPCRef *ackv1alpha1.AWSResourceReferenceWrapper `json:"vpcRef,omitempty"`
 }
 
 // FirewallStatus defines the observed state of Firewall

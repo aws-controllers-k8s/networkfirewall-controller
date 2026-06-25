@@ -118,6 +118,20 @@ spec:
                           type: integer
                         resourceARN:
                           type: string
+                        resourceRef:
+                          description: Reference field for ResourceARN
+                          properties:
+                            from:
+                              description: |-
+                                AWSResourceReference provides all the values necessary to reference another
+                                k8s resource for finding the identifier(Id/ARN/Name)
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                              type: object
+                          type: object
                       type: object
                     type: array
                   statelessCustomActions:
@@ -196,6 +210,20 @@ spec:
                           type: integer
                         resourceARN:
                           type: string
+                        resourceRef:
+                          description: Reference field for ResourceARN
+                          properties:
+                            from:
+                              description: |-
+                                AWSResourceReference provides all the values necessary to reference another
+                                k8s resource for finding the identifier(Id/ARN/Name)
+                              properties:
+                                name:
+                                  type: string
+                                namespace:
+                                  type: string
+                              type: object
+                          type: object
                       type: object
                     type: array
                   tlsInspectionConfigurationARN:
