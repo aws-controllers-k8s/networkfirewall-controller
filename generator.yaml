@@ -11,9 +11,23 @@ resources:
     fields:
       FirewallName: 
         is_primary_key: true
+      FirewallPolicyARN:
+        references:
+          resource: FirewallPolicy
+          path: Status.ACKResourceMetadata.ARN
+      VPCID:
+        references:
+          resource: VPC
+          service_name: ec2
+          path: Status.VPCID
       SubnetMappings:
         compare:
           is_ignored: true
+      SubnetMappings.SubnetID:
+        references:
+          resource: Subnet
+          service_name: ec2
+          path: Status.SubnetID
       LoggingConfiguration:
         from:
           operation: UpdateLoggingConfiguration
@@ -56,6 +70,14 @@ resources:
     fields:
       FirewallPolicyName:
         is_primary_key: true
+      FirewallPolicy.StatefulRuleGroupReferences.ResourceARN:
+        references:
+          resource: RuleGroup
+          path: Status.ACKResourceMetadata.ARN
+      FirewallPolicy.StatelessRuleGroupReferences.ResourceARN:
+        references:
+          resource: RuleGroup
+          path: Status.ACKResourceMetadata.ARN
     synced:
       when:
       - path: Status.FirewallPolicyResponse.FirewallPolicyStatus

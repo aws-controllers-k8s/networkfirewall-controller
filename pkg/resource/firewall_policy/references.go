@@ -17,9 +17,15 @@ package firewall_policy
 
 import (
 	"context"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	ackv1alpha1 "github.com/aws-controllers-k8s/runtime/apis/core/v1alpha1"
+	ackerr "github.com/aws-controllers-k8s/runtime/pkg/errors"
+	ackrt "github.com/aws-controllers-k8s/runtime/pkg/runtime"
 	acktypes "github.com/aws-controllers-k8s/runtime/pkg/types"
 
 	svcapitypes "github.com/aws-controllers-k8s/networkfirewall-controller/apis/v1alpha1"
@@ -31,6 +37,22 @@ import (
 // values.
 func (rm *resourceManager) ClearResolvedReferences(res acktypes.AWSResource) acktypes.AWSResource {
 	ko := rm.concreteResource(res).ko.DeepCopy()
+
+	if ko.Spec.FirewallPolicy != nil {
+		for f0idx, f0iter := range ko.Spec.FirewallPolicy.StatefulRuleGroupReferences {
+			if f0iter.ResourceRef != nil {
+				ko.Spec.FirewallPolicy.StatefulRuleGroupReferences[f0idx].ResourceARN = nil
+			}
+		}
+	}
+
+	if ko.Spec.FirewallPolicy != nil {
+		for f0idx, f0iter := range ko.Spec.FirewallPolicy.StatelessRuleGroupReferences {
+			if f0iter.ResourceRef != nil {
+				ko.Spec.FirewallPolicy.StatelessRuleGroupReferences[f0idx].ResourceARN = nil
+			}
+		}
+	}
 
 	return &resource{ko}
 }
@@ -47,11 +69,179 @@ func (rm *resourceManager) ResolveReferences(
 	apiReader client.Reader,
 	res acktypes.AWSResource,
 ) (acktypes.AWSResource, bool, error) {
-	return res, false, nil
+	ko := rm.concreteResource(res).ko
+
+	resourceHasReferences := false
+	err := validateReferenceFields(ko)
+	if fieldHasReferences, err := rm.resolveReferenceForFirewallPolicy_StatefulRuleGroupReferences_ResourceARN(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
+	if fieldHasReferences, err := rm.resolveReferenceForFirewallPolicy_StatelessRuleGroupReferences_ResourceARN(ctx, apiReader, ko); err != nil {
+		return &resource{ko}, (resourceHasReferences || fieldHasReferences), err
+	} else {
+		resourceHasReferences = resourceHasReferences || fieldHasReferences
+	}
+
+	return &resource{ko}, resourceHasReferences, err
 }
 
 // validateReferenceFields validates the reference field and corresponding
 // identifier field.
 func validateReferenceFields(ko *svcapitypes.FirewallPolicy) error {
+
+	if ko.Spec.FirewallPolicy != nil {
+		for _, f0iter := range ko.Spec.FirewallPolicy.StatefulRuleGroupReferences {
+			if f0iter.ResourceRef != nil && f0iter.ResourceARN != nil {
+				return ackerr.ResourceReferenceAndIDNotSupportedFor("FirewallPolicy.StatefulRuleGroupReferences.ResourceARN", "FirewallPolicy.StatefulRuleGroupReferences.ResourceRef")
+			}
+		}
+	}
+
+	if ko.Spec.FirewallPolicy != nil {
+		for _, f0iter := range ko.Spec.FirewallPolicy.StatelessRuleGroupReferences {
+			if f0iter.ResourceRef != nil && f0iter.ResourceARN != nil {
+				return ackerr.ResourceReferenceAndIDNotSupportedFor("FirewallPolicy.StatelessRuleGroupReferences.ResourceARN", "FirewallPolicy.StatelessRuleGroupReferences.ResourceRef")
+			}
+		}
+	}
 	return nil
+}
+
+// resolveReferenceForFirewallPolicy_StatefulRuleGroupReferences_ResourceARN reads the resource referenced
+// from FirewallPolicy.StatefulRuleGroupReferences.ResourceRef field and sets the FirewallPolicy.StatefulRuleGroupReferences.ResourceARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForFirewallPolicy_StatefulRuleGroupReferences_ResourceARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.FirewallPolicy,
+) (hasReferences bool, err error) {
+	if ko.Spec.FirewallPolicy != nil {
+		for f0idx, f0iter := range ko.Spec.FirewallPolicy.StatefulRuleGroupReferences {
+			if f0iter.ResourceRef != nil && f0iter.ResourceRef.From != nil {
+				hasReferences = true
+				arr := f0iter.ResourceRef.From
+				if arr.Name == nil || *arr.Name == "" {
+					return hasReferences, fmt.Errorf("provided resource reference is nil or empty: FirewallPolicy.StatefulRuleGroupReferences.ResourceRef")
+				}
+				namespace, err := ackrt.ResolveCrossNamespaceReference(
+					ctx,
+					rm.cfg.EnableCrossNamespace,
+					&ko.Status.Conditions,
+					ackrt.CrossNamespaceRefKindResource,
+					ko.ObjectMeta.GetNamespace(),
+					arr.Namespace,
+					*arr.Name,
+				)
+				if err != nil {
+					return hasReferences, err
+				}
+				obj := &svcapitypes.RuleGroup{}
+				if err := getReferencedResourceState_RuleGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+					return hasReferences, err
+				}
+				ko.Spec.FirewallPolicy.StatefulRuleGroupReferences[f0idx].ResourceARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+			}
+		}
+	}
+
+	return hasReferences, nil
+}
+
+// getReferencedResourceState_RuleGroup looks up whether a referenced resource
+// exists and is in a ACK.ResourceSynced=True state. If the referenced resource does exist and is
+// in a Synced state, returns nil, otherwise returns `ackerr.ResourceReferenceTerminalFor` or
+// `ResourceReferenceNotSyncedFor` depending on if the resource is in a Terminal state.
+func getReferencedResourceState_RuleGroup(
+	ctx context.Context,
+	apiReader client.Reader,
+	obj *svcapitypes.RuleGroup,
+	name string, // the Kubernetes name of the referenced resource
+	namespace string, // the Kubernetes namespace of the referenced resource
+) error {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+	err := apiReader.Get(ctx, namespacedName, obj)
+	if err != nil {
+		return err
+	}
+	var refResourceTerminal bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeTerminal &&
+			cond.Status == corev1.ConditionTrue {
+			return ackerr.ResourceReferenceTerminalFor(
+				"RuleGroup",
+				namespace, name)
+		}
+	}
+	if refResourceTerminal {
+		return ackerr.ResourceReferenceTerminalFor(
+			"RuleGroup",
+			namespace, name)
+	}
+	var refResourceSynced bool
+	for _, cond := range obj.Status.Conditions {
+		if cond.Type == ackv1alpha1.ConditionTypeResourceSynced &&
+			cond.Status == corev1.ConditionTrue {
+			refResourceSynced = true
+		}
+	}
+	if !refResourceSynced {
+		return ackerr.ResourceReferenceNotSyncedFor(
+			"RuleGroup",
+			namespace, name)
+	}
+	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+		return ackerr.ResourceReferenceMissingTargetFieldFor(
+			"RuleGroup",
+			namespace, name,
+			"Status.ACKResourceMetadata.ARN")
+	}
+	return nil
+}
+
+// resolveReferenceForFirewallPolicy_StatelessRuleGroupReferences_ResourceARN reads the resource referenced
+// from FirewallPolicy.StatelessRuleGroupReferences.ResourceRef field and sets the FirewallPolicy.StatelessRuleGroupReferences.ResourceARN
+// from referenced resource. Returns a boolean indicating whether a reference
+// contains references, or an error
+func (rm *resourceManager) resolveReferenceForFirewallPolicy_StatelessRuleGroupReferences_ResourceARN(
+	ctx context.Context,
+	apiReader client.Reader,
+	ko *svcapitypes.FirewallPolicy,
+) (hasReferences bool, err error) {
+	if ko.Spec.FirewallPolicy != nil {
+		for f0idx, f0iter := range ko.Spec.FirewallPolicy.StatelessRuleGroupReferences {
+			if f0iter.ResourceRef != nil && f0iter.ResourceRef.From != nil {
+				hasReferences = true
+				arr := f0iter.ResourceRef.From
+				if arr.Name == nil || *arr.Name == "" {
+					return hasReferences, fmt.Errorf("provided resource reference is nil or empty: FirewallPolicy.StatelessRuleGroupReferences.ResourceRef")
+				}
+				namespace, err := ackrt.ResolveCrossNamespaceReference(
+					ctx,
+					rm.cfg.EnableCrossNamespace,
+					&ko.Status.Conditions,
+					ackrt.CrossNamespaceRefKindResource,
+					ko.ObjectMeta.GetNamespace(),
+					arr.Namespace,
+					*arr.Name,
+				)
+				if err != nil {
+					return hasReferences, err
+				}
+				obj := &svcapitypes.RuleGroup{}
+				if err := getReferencedResourceState_RuleGroup(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
+					return hasReferences, err
+				}
+				ko.Spec.FirewallPolicy.StatelessRuleGroupReferences[f0idx].ResourceARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+			}
+		}
+	}
+
+	return hasReferences, nil
 }
