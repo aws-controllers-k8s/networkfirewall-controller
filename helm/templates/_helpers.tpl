@@ -70,6 +70,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ec2.services.k8s.aws
+  resources:
+  - vpcs
+  - vpcs/status
+  verbs:
+  - get
+  - list
+- apiGroups:
   - networkfirewall.services.k8s.aws
   resources:
   - firewallpolicies

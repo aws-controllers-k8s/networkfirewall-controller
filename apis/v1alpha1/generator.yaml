@@ -11,6 +11,15 @@ resources:
     fields:
       FirewallName: 
         is_primary_key: true
+      FirewallPolicyArn:
+        references:
+          resource: FirewallPolicy
+          path: Status.ACKResourceMetadata.ARN
+      VpcId:
+        references:
+          resource: VPC
+          service_name: ec2
+          path: Status.VPCID
       SubnetMappings:
         compare:
           is_ignored: true

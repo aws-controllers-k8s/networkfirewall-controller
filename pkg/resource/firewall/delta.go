@@ -20,6 +20,7 @@ import (
 
 	ackcompare "github.com/aws-controllers-k8s/runtime/pkg/compare"
 	acktags "github.com/aws-controllers-k8s/runtime/pkg/tags"
+	"k8s.io/apimachinery/pkg/api/equality"
 )
 
 // Hack to avoid import errors during build...
@@ -95,6 +96,9 @@ func newResourceDelta(
 			delta.Add("Spec.FirewallPolicyChangeProtection", a.ko.Spec.FirewallPolicyChangeProtection, b.ko.Spec.FirewallPolicyChangeProtection)
 		}
 	}
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.FirewallPolicyRef, b.ko.Spec.FirewallPolicyRef) {
+		delta.Add("Spec.FirewallPolicyRef", a.ko.Spec.FirewallPolicyRef, b.ko.Spec.FirewallPolicyRef)
+	}
 	if ackcompare.HasNilDifference(a.ko.Spec.SubnetChangeProtection, b.ko.Spec.SubnetChangeProtection) {
 		delta.Add("Spec.SubnetChangeProtection", a.ko.Spec.SubnetChangeProtection, b.ko.Spec.SubnetChangeProtection)
 	} else if a.ko.Spec.SubnetChangeProtection != nil && b.ko.Spec.SubnetChangeProtection != nil {
@@ -113,6 +117,9 @@ func newResourceDelta(
 		if *a.ko.Spec.VPCID != *b.ko.Spec.VPCID {
 			delta.Add("Spec.VPCID", a.ko.Spec.VPCID, b.ko.Spec.VPCID)
 		}
+	}
+	if !equality.Semantic.Equalities.DeepEqual(a.ko.Spec.VPCRef, b.ko.Spec.VPCRef) {
+		delta.Add("Spec.VPCRef", a.ko.Spec.VPCRef, b.ko.Spec.VPCRef)
 	}
 
 	return delta
