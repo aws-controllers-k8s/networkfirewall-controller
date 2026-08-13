@@ -135,7 +135,7 @@ func (rm *resourceManager) resolveReferenceForFirewallPolicyARN(
 		if err := getReferencedResourceState_FirewallPolicy(ctx, apiReader, obj, *arr.Name, namespace); err != nil {
 			return hasReferences, err
 		}
-		ko.Spec.FirewallPolicyARN = (*string)(obj.Status.ACKResourceMetadata.ARN)
+		ko.Spec.FirewallPolicyARN = (*string)(obj.Status.FirewallPolicyResponse.FirewallPolicyARN)
 	}
 
 	return hasReferences, nil
@@ -186,11 +186,11 @@ func getReferencedResourceState_FirewallPolicy(
 			"FirewallPolicy",
 			namespace, name)
 	}
-	if obj.Status.ACKResourceMetadata == nil || obj.Status.ACKResourceMetadata.ARN == nil {
+	if obj.Status.FirewallPolicyResponse == nil || obj.Status.FirewallPolicyResponse.FirewallPolicyARN == nil {
 		return ackerr.ResourceReferenceMissingTargetFieldFor(
 			"FirewallPolicy",
 			namespace, name,
-			"Status.ACKResourceMetadata.ARN")
+			"Status.FirewallPolicyResponse.FirewallPolicyARN")
 	}
 	return nil
 }

@@ -14,7 +14,9 @@ resources:
       FirewallPolicyArn:
         references:
           resource: FirewallPolicy
-          path: Status.ACKResourceMetadata.ARN
+          # FirewallPolicy does not populate Status.ACKResourceMetadata.ARN; the
+          # ARN is only exposed on the DescribeFirewallPolicy response object.
+          path: Status.FirewallPolicyResponse.FirewallPolicyARN
       VpcId:
         references:
           resource: VPC
