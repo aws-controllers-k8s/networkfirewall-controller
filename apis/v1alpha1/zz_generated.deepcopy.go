@@ -725,6 +725,11 @@ func (in *FirewallSpec) DeepCopyInto(out *FirewallSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.FirewallPolicyRef != nil {
+		in, out := &in.FirewallPolicyRef, &out.FirewallPolicyRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.LoggingConfiguration != nil {
 		in, out := &in.LoggingConfiguration, &out.LoggingConfiguration
 		*out = new(LoggingConfiguration)
@@ -761,6 +766,11 @@ func (in *FirewallSpec) DeepCopyInto(out *FirewallSpec) {
 		in, out := &in.VPCID, &out.VPCID
 		*out = new(string)
 		**out = **in
+	}
+	if in.VPCRef != nil {
+		in, out := &in.VPCRef, &out.VPCRef
+		*out = new(corev1alpha1.AWSResourceReferenceWrapper)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

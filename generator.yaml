@@ -11,6 +11,17 @@ resources:
     fields:
       FirewallName: 
         is_primary_key: true
+      FirewallPolicyArn:
+        references:
+          resource: FirewallPolicy
+          # FirewallPolicy does not populate Status.ACKResourceMetadata.ARN; the
+          # ARN is only exposed on the DescribeFirewallPolicy response object.
+          path: Status.FirewallPolicyResponse.FirewallPolicyARN
+      VpcId:
+        references:
+          resource: VPC
+          service_name: ec2
+          path: Status.VPCID
       SubnetMappings:
         compare:
           is_ignored: true
