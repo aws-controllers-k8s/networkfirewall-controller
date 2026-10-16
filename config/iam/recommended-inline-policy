@@ -4,16 +4,22 @@
         {
             "Effect": "Allow",
             "Action": [
+                "network-firewall:AssociateFirewallPolicy",
                 "network-firewall:CreateFirewall",
                 "network-firewall:CreateFirewallPolicy",
-                "network-firewall:DeleteFirewall ",
+                "network-firewall:CreateRuleGroup",
+                "network-firewall:DeleteFirewall",
                 "network-firewall:DeleteFirewallPolicy",
+                "network-firewall:DeleteRuleGroup",
                 "network-firewall:DescribeFirewall",
-                "network-firewall:DescribeFirewall",
-                "network-firewall:DescribeLoggingConfiguration"
+                "network-firewall:DescribeFirewallPolicy",
+                "network-firewall:DescribeLoggingConfiguration",
+                "network-firewall:DescribeRuleGroup",
                 "network-firewall:ListFirewallPolicies",
                 "network-firewall:ListFirewalls",
+                "network-firewall:UpdateFirewallPolicy",
                 "network-firewall:UpdateLoggingConfiguration",
+                "network-firewall:UpdateRuleGroup"
             ],
             "Resource": "*"
         }
